@@ -190,6 +190,12 @@ namespace create_flight_team.Graph
         {
             var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/archive");
         }
+        
+        public async Task<GraphCollection<User>> GetGroupMembersAsync(string groupId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{groupId}/members");
+            return JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
+        }
 
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0)
         {

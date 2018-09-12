@@ -8,16 +8,17 @@ using Microsoft.Azure.WebJobs.Host;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
 namespace create_flight_team
 {
-    public static class ArchiveFlightTeam
+    public static class NotifyFlightTeam
     {
         private static TraceWriter logger = null;
 
-        [FunctionName("ArchiveFlightTeam")]
+        [FunctionName("NotifyFlightTeam")]
         public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]HttpRequest req, TraceWriter log)
         {
             logger = log;
@@ -29,9 +30,9 @@ namespace create_flight_team
                 log.Info($"Access token: {graphToken}");
 
                 string requestBody = new StreamReader(req.Body).ReadToEnd();
-                var request = JsonConvert.DeserializeObject<ArchiveTeamRequest>(requestBody);
+                var request = JsonConvert.DeserializeObject<NotifyFlightTeamRequest>(requestBody);
 
-                await ArchiveTeamAsync(graphToken, request);
+                await NotifyTeamAsync(graphToken, request);
 
                 return new OkResult();
             }
@@ -49,19 +50,34 @@ namespace create_flight_team
             }
         }
 
-        private static async Task ArchiveTeamAsync(string accessToken, ArchiveTeamRequest request)
+        private static async Task NotifyTeamAsync(string accessToken, NotifyFlightTeamRequest request)
         {
             // Initialize Graph client
             var graphClient = new GraphService(accessToken, logger);
 
             // Find groups with the name "Flight ###"
-            var groupsToArchive = await graphClient.FindGroupsByNameAsync($"Flight {request.FlightNumber}");
+            var groupsToNotify = await graphClient.FindGroupsByNameAsync($"Flight {request.FlightNumber}");
 
-            foreach(var group in groupsToArchive.Value)
+            foreach (var group in groupsToNotify.Value)
             {
-                // Archive each matching team
-                await graphClient.ArchiveTeamAsync(group.Id);
+                // Get the group members
+                var members = await graphClient.GetGroupMembersAsync(group.Id);
+
+                // Send notification to each member
+                await SendNotificationAsync(members.Value, request.NewDepartureGate);
+
+                // Send pre-recorded message to each team
             }
+        }
+
+        private static async Task SendNotificationAsync(List<User> users, string newDepartureGate)
+        {
+
+        }
+
+        private static async Task SendRecordedMessageAsync(string groupId)
+        {
+
         }
     }
 }

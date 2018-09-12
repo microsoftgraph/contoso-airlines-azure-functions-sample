@@ -38,7 +38,7 @@ namespace create_flight_team
                 string requestBody = new StreamReader(req.Body).ReadToEnd();
                 var request = JsonConvert.DeserializeObject<CreateFlightTeamRequest>(requestBody);
 
-                await ProvisionTeam(graphToken, request);
+                await ProvisionTeamAsync(graphToken, request);
 
                 return new OkObjectResult(new CreateFlightTeamResponse { Result = "success" });
             }
@@ -56,7 +56,7 @@ namespace create_flight_team
             }
         }
 
-        private static async Task ProvisionTeam(string accessToken, CreateFlightTeamRequest request)
+        private static async Task ProvisionTeamAsync(string accessToken, CreateFlightTeamRequest request)
         {
             // Initialize Graph client
             var graphClient = new GraphService(accessToken, logger);
