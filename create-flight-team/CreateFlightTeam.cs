@@ -18,11 +18,6 @@ namespace create_flight_team
 {
     public static class CreateFlightTeam
     {
-        private static readonly string tid = Environment.GetEnvironmentVariable("TenantId");
-        private static readonly string authority = $"https://login.microsoftonline.com/{tid}";
-        private static readonly ClientCredential clientCreds = new ClientCredential(
-            Environment.GetEnvironmentVariable("AppId"),
-            Environment.GetEnvironmentVariable("AppSecret"));
         private static readonly string teamAppId = Environment.GetEnvironmentVariable("TeamAppToInstall");
         private static readonly string flightAdminSite = Environment.GetEnvironmentVariable("FlightAdminSite");
         private static readonly string flightLogFile = Environment.GetEnvironmentVariable("FlightLogFile");
@@ -37,7 +32,7 @@ namespace create_flight_team
             try
             {
                 // Exchange token for Graph token via on-behalf-of flow
-                var graphToken = await GetTokenOnBehalfOfAsync(req.Headers["Authorization"]);
+                var graphToken = await AuthProvider.GetTokenOnBehalfOfAsync(req.Headers["Authorization"]);
                 log.Info($"Access token: {graphToken}");
 
                 string requestBody = new StreamReader(req.Body).ReadToEnd();
@@ -61,30 +56,7 @@ namespace create_flight_team
             }
         }
 
-        private static async Task<string> GetTokenOnBehalfOfAsync(string authHeader)
-        {
-            if (string.IsNullOrEmpty(authHeader))
-            {
-                throw new AdalException("missing_auth", "Authorization header is not present on request.");
-            }
-
-            // Parse the auth header
-            var parsedHeader = AuthenticationHeaderValue.Parse(authHeader);
-            if (parsedHeader.Scheme.ToLower() != "bearer")
-            {
-                throw new AdalException("invalid_scheme", "Authorization header is missing the 'bearer' scheme.");
-            }
-
-            // Create an assertion based on the provided token
-            var userAssertion = new UserAssertion(parsedHeader.Parameter, "urn:ietf:params:oauth:grant-type:jwt-bearer");
-            var authContext = new AuthenticationContext(authority);
-
-            // Exchange the provided token for a Graph token
-            var result = await authContext.AcquireTokenAsync("https://graph.microsoft.com",
-                clientCreds, userAssertion);
-
-            return result.AccessToken;
-        }
+        
 
         private static async Task ProvisionTeam(string accessToken, CreateFlightTeamRequest request)
         {
