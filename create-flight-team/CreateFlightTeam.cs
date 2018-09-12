@@ -56,8 +56,6 @@ namespace create_flight_team
             }
         }
 
-        
-
         private static async Task ProvisionTeam(string accessToken, CreateFlightTeamRequest request)
         {
             // Initialize Graph client

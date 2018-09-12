@@ -180,6 +180,17 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<SharePointList>(await response.Content.ReadAsStringAsync());
         }
 
+        public async Task<GraphCollection<Group>> FindGroupsByNameAsync(string name)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups?$filter=displayName eq '{name}'");
+            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task ArchiveTeamAsync(string teamId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/archive");
+        }
+
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0)
         {
             string payload = string.Empty;
