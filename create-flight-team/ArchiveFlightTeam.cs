@@ -54,10 +54,10 @@ namespace create_flight_team
             // Initialize Graph client
             var graphClient = new GraphService(accessToken, logger);
 
-            // Find groups with the name "Flight ###"
-            var groupsToArchive = await graphClient.FindGroupsByNameAsync($"Flight {request.FlightNumber}");
+            // Find groups with the specified SharePoint item ID
+            var groupsToArchive = await graphClient.FindGroupsBySharePointItemIdAsync(request.SharePointItemId);
 
-            foreach(var group in groupsToArchive.Value)
+            foreach (var group in groupsToArchive.Value)
             {
                 // Archive each matching team
                 await graphClient.ArchiveTeamAsync(group.Id);

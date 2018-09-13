@@ -55,8 +55,8 @@ namespace create_flight_team
             // Initialize Graph client
             var graphClient = new GraphService(accessToken, logger);
 
-            // Find groups with the name "Flight ###"
-            var groupsToNotify = await graphClient.FindGroupsByNameAsync($"Flight {request.FlightNumber}");
+            // Find groups with specified SharePoint item ID
+            var groupsToNotify = await graphClient.FindGroupsBySharePointItemIdAsync(request.SharePointItemId);
 
             foreach (var group in groupsToNotify.Value)
             {

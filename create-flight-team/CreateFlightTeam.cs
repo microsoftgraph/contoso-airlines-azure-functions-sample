@@ -111,6 +111,7 @@ namespace create_flight_team
                 MailNickname = $"flight{request.FlightNumber}{GetTimestamp()}",
                 GroupTypes = new string[] { "Unified" },
                 SecurityEnabled = false,
+                Extension = new ProvisioningExtension { SharePointItemId = request.SharePointItemId },
                 Members = members.Distinct().ToList(),
                 Owners = owners.Distinct().ToList()
             };

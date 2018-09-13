@@ -6,6 +6,6 @@ namespace create_flight_team.Models
 {
     class ArchiveTeamRequest
     {
-        public float FlightNumber { get; set; }
+        public int SharePointItemId { get; set; }
     }
 }

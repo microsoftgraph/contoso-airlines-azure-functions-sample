@@ -12,6 +12,8 @@ namespace create_flight_team.Graph
 
     public class Group : GraphResource
     {
+        public const string SchemaExtensionName = "YOUR_SCHEMA_EXTENSION_NAME";
+
         public string Description { get; set; }
         public string DisplayName { get; set; }
         public string[] GroupTypes { get; set; }
@@ -20,11 +22,19 @@ namespace create_flight_team.Graph
         public bool SecurityEnabled { get; set; }
         public string Visibility { get; set; }
 
+        [JsonProperty(PropertyName = SchemaExtensionName, DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public ProvisioningExtension Extension { get; set; }
+
         [JsonProperty(PropertyName = "members@odata.bind", DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<string> Members { get; set; }
 
         [JsonProperty(PropertyName = "owners@odata.bind", DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<string> Owners { get; set; }
+    }
+
+    public class ProvisioningExtension
+    {
+        public int SharePointItemId { get; set; }
     }
 
     public class Team

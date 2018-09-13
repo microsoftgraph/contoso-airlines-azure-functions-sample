@@ -72,6 +72,11 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<Group>(await response.Content.ReadAsStringAsync());
         }
 
+        public async Task AddOpenExtensionToGroupAsync(string groupId, ProvisioningExtension extension)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/groups/{groupId}/extensions", extension);
+        }
+
         public async Task CreateTeamAsync(string groupId, Team team)
         {
             var response = await MakeGraphCall(HttpMethod.Put, $"/groups/{groupId}/team", team);
@@ -180,9 +185,9 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<SharePointList>(await response.Content.ReadAsStringAsync());
         }
 
-        public async Task<GraphCollection<Group>> FindGroupsByNameAsync(string name)
+        public async Task<GraphCollection<Group>> FindGroupsBySharePointItemIdAsync(int itemId)
         {
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups?$filter=displayName eq '{name}'");
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups?$filter={Group.SchemaExtensionName}/sharePointItemId  eq {itemId}");
             return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
         }
 
