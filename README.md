@@ -8,7 +8,7 @@
 
 1. Go to your Office 365 organization's root SharePoint site.
 1. Choose **Create Site**, then choose **Team site**. Name the site `Flight Admin` and choose **Next**, then choose **Finish**.
-1. When the new site loads in the browser, locate the **Documents** web part. Using either the **New** or the **Upload** button in that webpart, add a Word document called `Flight Log.docx`.
+1. When the new site loads in the browser, locate the **Documents** web part. Using either the **New** or the **Upload** button in that web part, add a Word document called `Flight Log.docx`.
 1. On the site's home page, choose **New** in the upper-left corner, then choose **List**. Name the list `Master Flight List` and choose **Create**.
 1. When the new list loads in the browser, use the **Add column** button to add the following columns:
 
@@ -87,9 +87,37 @@ You need to create two app registration in the Azure Portal.
 
 1. Chose **Save**.
 
-### Record Admin consent
+### Create schema extension
 
-Some of the permissions required by this sample require an administrator to consent.
+This sample uses a [schema extension](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/schemaextension) to save the item ID of the SharePoint list item that initiated the team provisioning onto the group in Microsoft Graph. This is used to find the group later when archiving the team or notifying members of a change to the departure gate.
+
+1. Go to [Graph Explorer](https://developer.microsoft.com/en-us/graph/graph-explorer) and login with an administrator account.
+1. Change the method to **POST**, the version to **beta**, and set the URL to `https://graph.microsoft.com/beta/schemaExtensions`.
+
+    ![A screenshot of the Graph Explorer request settings](readme-images/graph-explorer-request.PNG)
+
+1. In the **Request Body**, add the following JSON, replacing `app-id-for-flight-team-provisioning-function` with the application ID for your `Flight Team Provisioning Function` app registration.
+
+    ```json
+    {
+        "id":"contosoFlightTeam",
+        "owner": "app-id-for-flight-team-provisioning-function",
+        "description": "Contoso Flight Team Provisioning extensions",
+        "targetTypes": [
+            "Group"
+        ],
+        "properties": [
+            {
+                "name": "sharePointItemId",
+                "type": "Integer"
+            }
+        ]
+    }
+    ```
+
+1. Choose **Run Query**.
+1. In the **Response Preview**, locate the value of the `id` property. Copy this value.
+1. Open the `./create-flight-team/Graph/GraphResources.cs` file and replace `YOUR_SCHEMA_EXTENSION_NAME` with the value you just copied.
 
 ## Configure Microsoft Flow
 
@@ -160,6 +188,7 @@ Some of the permissions required by this sample require an administrator to cons
 1. Enter `Contoso` in the search box, then select **Contoso Team Provisioning - CreateFlightTeam**.
 1. Choose **Sign in**. **Be sure to use an administrator account** when you sign in to create the connection. The permissions required by the sample require administrator consent.
 1. Once sign in and consent are complete, you should see a form for the action. Fill in the fields as follows using the Flow UI.
+    1. **sharePointItemId**: Under **Dynamic content** choose **See more**, then select **ID**.
     1. **flightNumber**: Under **Dynamic content** choose **See more**, then select **Flight Number**.
     1. **description**: Under **Dynamic content** select **Title**.
     1. **admin**: Under **Dynamic content** select **Admin Email**.
@@ -173,15 +202,15 @@ Some of the permissions required by this sample require an administrator to cons
 
 1. Choose **New Step**, then **Add an action**.
 1. Enter `notification` in the search box, then select **Notifications - Send me an email notification**.
-    1. For **Subject**, enter `Microsoft Team created for Flight `, then under **Dynamic content** choose **See more**, then select **Flight Number**.
+    1. For **Subject**, enter `Microsoft Team created for Flight`, then under **Dynamic content** choose **See more**, then select **Flight Number**.
     1. For **Body**, under **Dynamic content** select **Link to item**.
 
     ![A screenshot of the Send me an email notification action for success](readme-images/send-success-email.PNG)
 
 1. Hover over the arrow above the **Send me an email notification** action and choose the **+**, then **Add a parallel branch**, then **Add an action**.
 1. Enter `notification` in the search box, then select **Notifications - Send me an email notification**.
-    1. For **Subject**, enter `Error creating Microsoft Team for Flight `, then under **Dynamic content** choose **See more**, then select **Flight Number**.
-    1. For **Body**, enter `Details: `, then under **Dynamic content** select **Body**.
+    1. For **Subject**, enter `Error creating Microsoft Team for Flight`, then under **Dynamic content** choose **See more**, then select **Flight Number**.
+    1. For **Body**, enter `Details:`, then under **Dynamic content** select **Body**.
     1. Choose the **...** on the action and choose **Configure run after**.
         1. Unselect **is successful**
         1. Select **has failed**
@@ -196,3 +225,41 @@ The email notification actions should look like the following when you're done.
 Select **Save** to save the flow.
 
 ### Create the "Archive Team" flow
+
+1. Go to [Microsoft Flow](https://flow.microsoft.com). Choose **My flows**.
+1. Choose **Create from blank**.
+1. On the next page, choose **Create from blank**.
+1. Enter `SharePoint` in the search box, then select **SharePoint - When an item is deleted**.
+    1. Enter the URL to your **Flight Admin** site you created earlier for **Site Address**, then select **Master Flight List** for **List Name**.
+
+    ![A screenshot of the When an item is deleted trigger](readme-images/item-deleted-trigger.PNG)
+
+1. Choose **New Step**, then **Add an action**.
+1. Enter `Contoso` in the search box, then select **Contoso Team Provisioning - ArchiveFlightTeam**.
+1. Fill in the fields as follows using the Flow UI.
+    1. **sharePointItemId**: Under **Dynamic content** choose **See more**, then select **ID**.
+
+    ![A screenshot of the ArchiveFlightTeam action](readme-images/archive-flight-team-action.PNG)
+
+Select **Save** to save the flow.
+
+### Create the "Notify Team" flow
+
+For this flow, we will start with an existing template and modify it to our use. Unfortunately the Flow team removed the "When an existing item is modified" trigger for SharePoint from the UI when creating a blank flow. By using this template, we can get access to it.
+
+1. Go to the [Microsoft Flow template](https://us.flow.microsoft.com/en-us/galleries/public/templates/3821506240744debadcd89c94690652d/when-an-item-in-a-sharepoint-list-is-modified-send-an-email/). Choose **Edit in advanced mode**.
+1. In the **When an existing item is modified** box, enter the URL to your **Flight Admin** site you created earlier for **Site Address**, then select **Master Flight List** for **List Name**.
+
+    ![A screenshot of the When an existing item is modified trigger](readme-images/item-modified-trigger.PNG)
+
+1. Choose the **...** on the **Send Email** box and choose **Delete**. Choose **OK** when prompted.
+
+1. Choose **New Step**, then **Add an action**.
+1. Enter `Contoso` in the search box, then select **Contoso Team Provisioning - NotifyFlightTeam**.
+1. Fill in the fields as follows using the Flow UI.
+    1. **sharePointItemId**: Under **Dynamic content** choose **See more**, then select **ID**.
+    1. **newDepartureGate**: Under **Dynamic content** select **Departure Gate**.
+
+    ![A screenshot of the NotifyFlightTeam action](readme-images/notify-flight-team-action.PNG)
+
+Select **Save** to save the flow.

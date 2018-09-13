@@ -34,11 +34,13 @@
         "oauth2": [
           {
             "key": "accessToken",
-            "value": ""
+            "value": "",
+            "type": "string"
           },
           {
             "key": "tokenType",
-            "value": "Bearer"
+            "value": "Bearer",
+            "type": "string"
           },
           {
             "key": "addTokenTo",
@@ -49,7 +51,7 @@
       },
       "events": [],
       "folder": null,
-      "rawModeData": "{\n\t\"flightNumber\": 149.7,\n\t\"description\": \"JAX to SEA\",\n\t\"admin\": \"alland@contoso.onmicrosoft.com\",\n\t\"pilots\": [\n\t\t\"christiec@contoso.onmicrosoft.com\",\n\t\t\"adelev@contoso.onmicrosoft.com\"\n\t],\n\t\"flightAttendants\": [\n\t\t\"debrab@contoso.onmicrosoft.com\",\n\t\t\"emilyb@contoso.onmicrosoft.com\"\n\t],\n\t\"cateringLiaison\": \"outlookdevcenter@gmail.com\",\n\t\"departureGate\": \"A12\",\n\t\"departureTime\": \"2018-10-1T09:00:00-04:00\"\n}",
+      "rawModeData": "{\n\t\"sharePointItemId\": 1,\n\t\"flightNumber\": 149.7,\n\t\"description\": \"JAX to SEA\",\n\t\"admin\": \"alland@contoso.onmicrosoft.com\",\n\t\"pilots\": [\n\t\t\"christiec@contoso.onmicrosoft.com\",\n\t\t\"adelev@contoso.onmicrosoft.com\"\n\t],\n\t\"flightAttendants\": [\n\t\t\"debrab@contoso.onmicrosoft.com\",\n\t\t\"emilyb@contoso.onmicrosoft.com\"\n\t],\n\t\"cateringLiaison\": \"outlookdevcenter@gmail.com\",\n\t\"departureGate\": \"A12\",\n\t\"departureTime\": \"2018-10-1T09:00:00-04:00\"\n}",
       "headers": "Content-Type: application/json\n",
       "pathVariables": {}
     },
@@ -74,11 +76,13 @@
         "oauth2": [
           {
             "key": "accessToken",
-            "value": ""
+            "value": "",
+            "type": "string"
           },
           {
             "key": "tokenType",
-            "value": "Bearer"
+            "value": "Bearer",
+            "type": "string"
           },
           {
             "key": "addTokenTo",
@@ -89,7 +93,7 @@
       },
       "events": [],
       "folder": null,
-      "rawModeData": "{\n\t\"flightNumber\": 133.7,\n\t\"newDepartureGate\": \"A47\"\n}",
+      "rawModeData": "{\n\t\"sharePointItemId\": 1,\n\t\"newDepartureGate\": \"A47\"\n}",
       "headers": "Content-Type: application/json\n",
       "pathVariables": {}
     },
@@ -114,11 +118,13 @@
         "oauth2": [
           {
             "key": "accessToken",
-            "value": ""
+            "value": "",
+            "type": "string"
           },
           {
             "key": "tokenType",
-            "value": "Bearer"
+            "value": "Bearer",
+            "type": "string"
           },
           {
             "key": "addTokenTo",
@@ -129,7 +135,7 @@
       },
       "events": [],
       "folder": null,
-      "rawModeData": "{\n\t\"flightNumber\": 133.7\n}",
+      "rawModeData": "{\n\t\"sharePointItemId\": 1\n}",
       "headers": "Content-Type: application/json\n",
       "pathVariables": {}
     }
