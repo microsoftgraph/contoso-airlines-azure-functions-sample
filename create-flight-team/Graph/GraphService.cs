@@ -139,7 +139,7 @@ namespace create_flight_team.Graph
             // Retry this call twice if it fails
             // There seems to be a delay between creating a Team and the drives being
             // fully created/enabled
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 2);
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 4);
             return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
         }
 
@@ -204,6 +204,9 @@ namespace create_flight_team.Graph
 
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0)
         {
+            // Initialize retry delay to 3 secs
+            int retryDelay = 3;
+
             string payload = string.Empty;
 
             if (body != null && (method != HttpMethod.Get || method != HttpMethod.Delete))
@@ -239,8 +242,10 @@ namespace create_flight_team.Graph
                     if (retries > 0)
                     {
                         if (logger != null)
-                            logger.Info($"MakeGraphCall Retrying after 2 seconds...({retries} retries remaining)");
-                        Thread.Sleep(3000);
+                            logger.Info($"MakeGraphCall Retrying after {retryDelay} seconds...({retries} retries remaining)");
+                        Thread.Sleep(retryDelay * 1000);
+                        // Double the retry delay for subsequent retries
+                        retryDelay += retryDelay;
                     }
                     else
                     {
