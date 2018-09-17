@@ -16,6 +16,8 @@ namespace create_flight_team
 {
     public static class NotifyFlightTeam
     {
+        private static readonly string notifAppId = Environment.GetEnvironmentVariable("NotificationAppId");
+
         private static TraceWriter logger = null;
 
         [FunctionName("NotifyFlightTeam")]
@@ -60,19 +62,69 @@ namespace create_flight_team
 
             foreach (var group in groupsToNotify.Value)
             {
+                // Post a Teams chat
+                await PostTeamChatNotification(graphClient, group.Id, request.NewDepartureGate);
+
                 // Get the group members
-                var members = await graphClient.GetGroupMembersAsync(group.Id);
+                //var members = await graphClient.GetGroupMembersAsync(group.Id);
 
                 // Send notification to each member
-                await SendNotificationAsync(members.Value, request.NewDepartureGate);
+                //await SendNotificationAsync(graphClient, members.Value, group.DisplayName, request.NewDepartureGate);
 
                 // Send pre-recorded message to each team
             }
         }
 
-        private static async Task SendNotificationAsync(List<User> users, string newDepartureGate)
+        private static async Task PostTeamChatNotification(GraphService graphClient, string groupId, string newDepartureGate)
         {
+            // Get channels
+            var channels = await graphClient.GetTeamChannelsAsync(groupId);
 
+            // Create notification thread   
+            var notificationThread = new ChatThread
+            {
+                RootMessage = new ChatMessage
+                {
+                    Body = new ItemBody { Content = $"Your flight will now depart from gate {newDepartureGate}" }
+                }
+            };
+
+            // Post to all channels
+            foreach (var channel in channels.Value)
+            {
+                await graphClient.CreateChatThreadAsync(groupId, channel.Id, notificationThread);
+            }
+        }
+
+        private static async Task SendNotificationAsync(GraphService graphClient, List<User> users, string groupName, string newDepartureGate)
+        {
+            // Ideally loop through all the members here and send each a notification
+            // The notification API is currently limited to only send to the logged-in user
+            // So to do this, would need to manage tokens for each user.
+            // For now, just send to the authenticated user.
+            var notification = new Notification
+            {
+                TargetHostName = notifAppId,
+                AppNotificationId = "testDirectToastNotification",
+                GroupName = "TestGroup",
+                ExpirationDateTime = DateTimeOffset.UtcNow.AddDays(1).ToUniversalTime(),
+                Priority = "High",
+                DisplayTimeToLive = 30,
+                Payload = new NotificationPayload
+                {
+                    VisualContent = new NotificationVisualContent
+                    {
+                        Title = $"{groupName} gate change",
+                        Body = $"Departure gate has been changed to {newDepartureGate}"
+                    }
+                },
+                TargetPolicy = new NotificationTargetPolicy
+                {
+                    PlatformTypes = new string[] { "windows", "android", "ios" }
+                }
+            };
+
+            await graphClient.SendNotification(notification);
         }
 
         private static async Task SendRecordedMessageAsync(string groupId)
