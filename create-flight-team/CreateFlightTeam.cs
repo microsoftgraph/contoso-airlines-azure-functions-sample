@@ -21,6 +21,8 @@ namespace create_flight_team
         private static readonly string teamAppId = Environment.GetEnvironmentVariable("TeamAppToInstall");
         private static readonly string flightAdminSite = Environment.GetEnvironmentVariable("FlightAdminSite");
         private static readonly string flightLogFile = Environment.GetEnvironmentVariable("FlightLogFile");
+        private static readonly string tenantName = Environment.GetEnvironmentVariable("TenantName");
+        private static readonly bool createTabs = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("EnableAddTeamsTabs"));
 
         private static TraceWriter logger = null;
 
@@ -65,17 +67,17 @@ namespace create_flight_team
             var group = await CreateUnifiedGroupAsync(graphClient, request);
 
             // Create the team in the group
-            await InitializeTeamInGroupAsync(graphClient, group.Id, 
+            var teamChannel = await InitializeTeamInGroupAsync(graphClient, group.Id, 
                 $"Welcome to Flight {request.FlightNumber}!");
 
             // Copy flight log template to team files
             await CopyFlightLogToTeamFilesAsync(graphClient, group.Id);
 
             // Create Planner plan and tasks
-            await CreatePreflightPlanAsync(graphClient, group.Id, request.DepartureTime);
+            await CreatePreflightPlanAsync(graphClient, group.Id, teamChannel.Id, request.DepartureTime);
 
             // Create SharePoint list
-            await CreateChallengingPassengersListAsync(graphClient, group.Id);
+            await CreateChallengingPassengersListAsync(graphClient, group.Id, teamChannel.Id);
 
             // Create SharePoint page
             // TODO
@@ -136,7 +138,7 @@ namespace create_flight_team
             return createdGroup;
         }
 
-        private static async Task InitializeTeamInGroupAsync(GraphService graphClient, string groupId, string welcomeMessage)
+        private static async Task<Channel> InitializeTeamInGroupAsync(GraphService graphClient, string groupId, string welcomeMessage)
         {
             // Create the team
             var team = new Team
@@ -201,6 +203,9 @@ namespace create_flight_team
                 await graphClient.AddAppToTeam(groupId, teamsApp);
             }
             logger.Info("Added app to team");
+
+            // Return the general channel
+            return generalChannel;
         }
 
         private static async Task CopyFlightLogToTeamFilesAsync(GraphService graphClient, string groupId)
@@ -234,7 +239,7 @@ namespace create_flight_team
             logger.Info("Copied file to team files");
         }
 
-        private static async Task CreatePreflightPlanAsync(GraphService graphClient, string groupId, DateTimeOffset departureTime)
+        private static async Task CreatePreflightPlanAsync(GraphService graphClient, string groupId, string channelId, DateTimeOffset departureTime)
         {
             // Create a "Pre-flight checklist" plan
             var preFlightCheckList = new Plan
@@ -283,9 +288,28 @@ namespace create_flight_team
             };
 
             await graphClient.CreatePlannerTaskAsync(ensureFoodBevStock);
+
+            if (createTabs)
+            {
+                // Add planner tab to General channel
+                var plannerTab = new TeamsChannelTab
+                {
+                    Name = "Pre-flight Checklist",
+                    TeamsAppId = "com.microsoft.teamspace.tab.planner",
+                    Configuration = new TeamsChannelTabConfiguration
+                    {
+                        EntityId = createdPlan.Id,
+                        ContentUrl = $"https://tasks.office.com/{tenantName}/Home/PlannerFrame?page=7&planId={createdPlan.Id}&auth_pvr=Orgid&auth_upn={{upn}}&mkt={{locale}}",
+                        RemoveUrl = $"https://tasks.office.com/{tenantName}/Home/PlannerFrame?page=13&planId={createdPlan.Id}&auth_pvr=Orgid&auth_upn={{upn}}&mkt={{locale}}",
+                        WebsiteUrl = $"https://tasks.office.com/{tenantName}/Home/PlanViews/{createdPlan.Id}"
+                    }
+                };
+
+                await graphClient.AddTeamChannelTab(groupId, channelId, plannerTab);
+            }
         }
 
-        private static async Task CreateChallengingPassengersListAsync(GraphService graphClient, string groupId)
+        private static async Task CreateChallengingPassengersListAsync(GraphService graphClient, string groupId, string channelId)
         {
             // Get the team site
             var teamSite = await graphClient.GetTeamSiteAsync(groupId);
@@ -315,6 +339,23 @@ namespace create_flight_team
 
             // Create the list
             var createdList = await graphClient.CreateSharePointListAsync(teamSite.Id, challengingPassengers);
+
+            if (createTabs)
+            {
+                // Add the list as a team tab
+                var listTab = new TeamsChannelTab
+                {
+                    Name = "Challenging Passengers",
+                    TeamsAppId = "com.microsoft.teamspace.tab.web",
+                    Configuration = new TeamsChannelTabConfiguration
+                    {
+                        ContentUrl = createdList.WebUrl,
+                        WebsiteUrl = createdList.WebUrl
+                    }
+                };
+
+                await graphClient.AddTeamChannelTab(groupId, channelId, listTab);
+            }
         }
 
         private static string GetTimestamp()

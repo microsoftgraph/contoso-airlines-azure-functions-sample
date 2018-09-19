@@ -53,8 +53,13 @@ You need to create two app registration in the Azure Portal.
 1. Choose **Settings**, then choose **Required permissions**.
 1. Choose **Add**, then **Select an API**. Choose **Microsoft Graph**, then choose **Select**.
 1. Select the following under **Delegated permissions**:
-    - **Read and write all groups**
+    - **Deliver and manage user notifications for this app**
+    - **Invite guest users to the organization**
+    - **Edit or delete items in all site collections**
     - **Read all users' full profiles**
+    - **Read and write all groups**
+    - **Have full access to all files user can access**
+    - **Create, edit, and delete items and lists in all site collections**
 1. Choose **Select**, then **Done**.
 1. In the **Settings** blade, choose **Keys**.
 1. Under **Passwords**, enter a description, select a duration, then choose **Save**. Copy the **Value**, you will need it later.

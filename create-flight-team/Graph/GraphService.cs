@@ -13,12 +13,15 @@ namespace create_flight_team.Graph
 {
     public class GraphService
     {
-        private static readonly string graphEndpoint = "https://graph.microsoft.com/beta";
+        private static readonly string graphEndpoint = "https://graph.microsoft.com/";
 
         private readonly string accessToken = string.Empty;
         private HttpClient httpClient = null;
         private readonly JsonSerializerSettings jsonSettings = 
             new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
+
+        private static readonly string teamsEndpoint = Environment.GetEnvironmentVariable("TeamAppToInstall");
+        private static readonly string sharePointEndpoint = Environment.GetEnvironmentVariable("TeamAppToInstall");
 
         private TraceWriter logger = null;
 
@@ -42,13 +45,13 @@ namespace create_flight_team.Graph
             foreach(var pilot in pilots)
             {
                 var user = await GetUserByUpn(pilot);
-                userIds.Add($"{graphEndpoint}/users/{user.Id}");
+                userIds.Add($"{graphEndpoint}beta/users/{user.Id}");
             }
 
             foreach(var flightAttendant in flightAttendants)
             {
                 var user = await GetUserByUpn(flightAttendant);
-                userIds.Add($"{graphEndpoint}/users/{user.Id}");
+                userIds.Add($"{graphEndpoint}beta/users/{user.Id}");
             }
 
             return userIds;
@@ -90,7 +93,7 @@ namespace create_flight_team.Graph
 
         public async Task AddMemberAsync(string teamId, string userId, bool isOwner = false)
         {
-            var addUserPayload = new AddUserToGroup() { UserPath = $"{graphEndpoint}/users/{userId}" };
+            var addUserPayload = new AddUserToGroup() { UserPath = $"{graphEndpoint}beta/users/{userId}" };
             await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/members/$ref", addUserPayload);
 
             // Step 3 -- Add the ID to the owners of group if requested
@@ -202,7 +205,18 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
         }
 
-        private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0)
+        public async Task SendNotification(Notification notification)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, "/me/notifications", notification);
+        }
+
+        public async Task AddTeamChannelTab(string teamId, string channelId, TeamsChannelTab tab)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/tabs", tab, 
+                version: string.IsNullOrEmpty(teamsEndpoint) ? "beta" : teamsEndpoint);
+        }
+
+        private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
         {
             // Initialize retry delay to 3 secs
             int retryDelay = 3;
@@ -224,7 +238,7 @@ namespace create_flight_team.Graph
             do
             {
                 // Create the request
-                var request = new HttpRequestMessage(method, $"{graphEndpoint}{uri}");
+                var request = new HttpRequestMessage(method, $"{graphEndpoint}{version}{uri}");
                 
 
                 if (!string.IsNullOrEmpty(payload))

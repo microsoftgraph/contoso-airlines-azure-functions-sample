@@ -66,10 +66,10 @@ namespace create_flight_team
                 await PostTeamChatNotification(graphClient, group.Id, request.NewDepartureGate);
 
                 // Get the group members
-                //var members = await graphClient.GetGroupMembersAsync(group.Id);
+                var members = await graphClient.GetGroupMembersAsync(group.Id);
 
                 // Send notification to each member
-                //await SendNotificationAsync(graphClient, members.Value, group.DisplayName, request.NewDepartureGate);
+                await SendNotificationAsync(graphClient, members.Value, group.DisplayName, request.NewDepartureGate);
 
                 // Send pre-recorded message to each team
             }

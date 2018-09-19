@@ -12,7 +12,7 @@ namespace create_flight_team.Graph
 
     public class Group : GraphResource
     {
-        public const string SchemaExtensionName = "YOUR_SCHEMA_EXTENSION_NAME";
+        public const string SchemaExtensionName = "ext19x0ug7l_contosoFlightTeam";
 
         public string Description { get; set; }
         public string DisplayName { get; set; }
@@ -138,6 +138,8 @@ namespace create_flight_team.Graph
     {
         public string DisplayName { get; set; }
         public List<ColumnDefinition> Columns { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public string WebUrl { get; set; }
     }
 
     public class ColumnDefinition
@@ -153,6 +155,52 @@ namespace create_flight_team.Graph
     {
         [JsonProperty(PropertyName = "@odata.type")]
         public string Type { get { return "microsoft.graph.textColumn"; } }
+    }
+
+    public class Notification : GraphResource
+    {
+        public string TargetHostName { get; set; }
+        public string AppNotificationId { get; set; }
+        public DateTimeOffset ExpirationDateTime { get; set; }
+        public NotificationPayload Payload { get; set; }
+        public NotificationTargetPolicy TargetPolicy { get; set; }
+        public string Priority { get; set; }
+        public string GroupName { get; set; }
+        public int DisplayTimeToLive { get; set; } 
+    }
+
+    public class NotificationPayload
+    {
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public string RawContent { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public NotificationVisualContent VisualContent { get; set; }
+    }
+
+    public class NotificationVisualContent
+    {
+        public string Title { get; set; }
+        public string Body { get; set; }
+    }
+
+    public class NotificationTargetPolicy
+    {
+        public string[] PlatformTypes { get; set; }
+    }
+    
+    public class TeamsChannelTab : GraphResource
+    {
+        public string Name { get; set; }
+        public string TeamsAppId { get; set; }
+        public TeamsChannelTabConfiguration Configuration { get; set; }
+    }
+
+    public class TeamsChannelTabConfiguration
+    {
+        public string EntityId { get; set; }
+        public string ContentUrl { get; set; }
+        public string RemoveUrl { get; set; }
+        public string WebsiteUrl { get; set; }
     }
 
     public class GraphCollection<T>
