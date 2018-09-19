@@ -20,8 +20,8 @@ namespace create_flight_team.Graph
         private readonly JsonSerializerSettings jsonSettings = 
             new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
 
-        private static readonly string teamsEndpoint = Environment.GetEnvironmentVariable("TeamAppToInstall");
-        private static readonly string sharePointEndpoint = Environment.GetEnvironmentVariable("TeamAppToInstall");
+        private static readonly string teamsEndpoint = Environment.GetEnvironmentVariable("TeamsEndpoint");
+        private static readonly string sharePointEndpoint = Environment.GetEnvironmentVariable("SharePointEndPoint");
 
         private TraceWriter logger = null;
 
