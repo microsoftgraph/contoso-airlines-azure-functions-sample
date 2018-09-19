@@ -17,6 +17,7 @@ namespace create_flight_team
     public static class NotifyFlightTeam
     {
         private static readonly string notifAppId = Environment.GetEnvironmentVariable("NotificationAppId");
+        private static readonly bool sendCrossDeviceNotifications = !string.IsNullOrEmpty(notifAppId);
 
         private static TraceWriter logger = null;
 
@@ -65,13 +66,14 @@ namespace create_flight_team
                 // Post a Teams chat
                 await PostTeamChatNotification(graphClient, group.Id, request.NewDepartureGate);
 
-                // Get the group members
-                var members = await graphClient.GetGroupMembersAsync(group.Id);
+                if (sendCrossDeviceNotifications)
+                {
+                    // Get the group members
+                    var members = await graphClient.GetGroupMembersAsync(group.Id);
 
-                // Send notification to each member
-                await SendNotificationAsync(graphClient, members.Value, group.DisplayName, request.NewDepartureGate);
-
-                // Send pre-recorded message to each team
+                    // Send notification to each member
+                    await SendNotificationAsync(graphClient, members.Value, group.DisplayName, request.NewDepartureGate);
+                }
             }
         }
 
@@ -125,11 +127,6 @@ namespace create_flight_team
             };
 
             await graphClient.SendNotification(notification);
-        }
-
-        private static async Task SendRecordedMessageAsync(string groupId)
-        {
-
         }
     }
 }
