@@ -137,6 +137,7 @@ namespace create_flight_team.Graph
     public class SharePointList : GraphResource
     {
         public string DisplayName { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public List<ColumnDefinition> Columns { get; set; }
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public string WebUrl { get; set; }
@@ -166,7 +167,7 @@ namespace create_flight_team.Graph
         public NotificationTargetPolicy TargetPolicy { get; set; }
         public string Priority { get; set; }
         public string GroupName { get; set; }
-        public int DisplayTimeToLive { get; set; } 
+        public int DisplayTimeToLive { get; set; }
     }
 
     public class NotificationPayload
@@ -187,7 +188,7 @@ namespace create_flight_team.Graph
     {
         public string[] PlatformTypes { get; set; }
     }
-    
+
     public class TeamsChannelTab : GraphResource
     {
         public string Name { get; set; }
@@ -201,6 +202,40 @@ namespace create_flight_team.Graph
         public string ContentUrl { get; set; }
         public string RemoveUrl { get; set; }
         public string WebsiteUrl { get; set; }
+    }
+
+    public class SharePointPage : GraphResource
+    {
+        public string Name { get; set; }
+        public string Title { get; set; }
+        public List<SharePointWebPart> WebParts { get; set; }
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public string WebUrl { get; set; }
+    }
+
+    public class SharePointWebPart
+    {
+        public const string ListWebPart = "f92bf067-bc19-489e-a556-7fe95f508720";
+
+        public string Type { get; set; }
+        public WebPartData Data { get; set; }
+    }
+
+    public class WebPartData
+    {
+        public string DataVersion { get; set; }
+        public object Properties { get; set; }
+    }
+
+    public class ListProperties
+    {
+        public const string DocLibraryViewId = "5c8737ce-7642-483c-86f0-a1dd698f1668";
+        public const string ListViewId = "b48e4b66-7e47-499e-a79a-d238da845214";
+
+        public bool IsDocumentLibrary { get; set; }
+        public string SelectedListId { get; set; }
+        public int WebpartHeightKey { get; set; }
+        public string SelectedViewId { get; set; }
     }
 
     public class GraphCollection<T>

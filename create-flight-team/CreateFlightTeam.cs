@@ -23,6 +23,7 @@ namespace create_flight_team
         private static readonly string flightLogFile = Environment.GetEnvironmentVariable("FlightLogFile");
         private static readonly string tenantName = Environment.GetEnvironmentVariable("TenantName");
         private static readonly bool createTabs = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("EnableAddTeamsTabs"));
+        private static readonly bool createSharepointPage = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("EnableSharePointPage"));
 
         private static TraceWriter logger = null;
 
@@ -80,7 +81,10 @@ namespace create_flight_team
             await CreateChallengingPassengersListAsync(graphClient, group.Id, teamChannel.Id);
 
             // Create SharePoint page
-            // TODO
+            if (createSharepointPage)
+            {
+                await CreateSharePointPageAsync(graphClient, group.Id, request.FlightNumber);
+            }
         }
 
         private static async Task<Group> CreateUnifiedGroupAsync(GraphService graphClient, CreateFlightTeamRequest request)
@@ -309,7 +313,7 @@ namespace create_flight_team
             }
         }
 
-        private static async Task CreateChallengingPassengersListAsync(GraphService graphClient, string groupId, string channelId)
+        private static async Task<SharePointList> CreateChallengingPassengersListAsync(GraphService graphClient, string groupId, string channelId)
         {
             // Get the team site
             var teamSite = await graphClient.GetTeamSiteAsync(groupId);
@@ -356,6 +360,50 @@ namespace create_flight_team
 
                 await graphClient.AddTeamChannelTab(groupId, channelId, listTab);
             }
+
+            return createdList;
+        }
+
+        private static async Task CreateSharePointPageAsync(GraphService graphClient, string groupId, float flightNumber)
+        {
+            // Get the team site
+            var teamSite = await graphClient.GetTeamSiteAsync(groupId);
+
+            // Get the site lists
+            var siteLists = await graphClient.GetSiteListsAsync(teamSite.Id);
+
+            // Initialize page
+            var sharePointPage = new SharePointPage
+            {
+                Name = "TeamPage.aspx",
+                Title = $"Flight {flightNumber}",
+                WebParts = new List<SharePointWebPart>()
+            };
+
+            foreach (var list in siteLists.Value)
+            {
+                bool isDocLibrary = list.DisplayName == "Documents";
+
+                var webPart = new SharePointWebPart
+                {
+                    Type = SharePointWebPart.ListWebPart,
+                    Data = new WebPartData
+                    {
+                        DataVersion = "1.0",
+                        Properties = new ListProperties
+                        {
+                            IsDocumentLibrary = isDocLibrary,
+                            SelectedListId = list.Id,
+                            SelectedViewId = isDocLibrary ? ListProperties.DocLibraryViewId : ListProperties.ListViewId,
+                            WebpartHeightKey = 1
+                        }
+                    }
+                };
+
+                sharePointPage.WebParts.Add(webPart);
+            }
+
+            var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
         }
 
         private static string GetTimestamp()
