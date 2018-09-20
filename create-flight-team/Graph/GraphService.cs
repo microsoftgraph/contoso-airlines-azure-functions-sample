@@ -216,6 +216,19 @@ namespace create_flight_team.Graph
                 version: string.IsNullOrEmpty(teamsEndpoint) ? "beta" : teamsEndpoint);
         }
 
+        public async Task<GraphCollection<SharePointList>> GetSiteListsAsync(string siteId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/lists");
+            return JsonConvert.DeserializeObject<GraphCollection<SharePointList>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task<SharePointPage> CreateSharePointPageAsync(string siteId, SharePointPage page)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/pages", page,
+                version: string.IsNullOrEmpty(sharePointEndpoint) ? "beta" : sharePointEndpoint);
+            return JsonConvert.DeserializeObject<SharePointPage>(await response.Content.ReadAsStringAsync());
+        }
+
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
         {
             // Initialize retry delay to 3 secs
