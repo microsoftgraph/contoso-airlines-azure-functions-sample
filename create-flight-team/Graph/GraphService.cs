@@ -229,6 +229,18 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<SharePointPage>(await response.Content.ReadAsStringAsync());
         }
 
+        public async Task<GraphCollection<Group>> GetAllGroupsAsync(string filter = null)
+        {
+            string query = string.IsNullOrEmpty(filter) ? string.Empty : $"?$filter={filter}";
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups{query}");
+            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task DeleteGroupAsync(string groupId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Delete, $"/groups/{groupId}");
+        }
+
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
         {
             // Initialize retry delay to 3 secs
