@@ -265,3 +265,6 @@ __pycache__/
 
 # Postman collection for Azure func API
 postman_collection.json
+
+local.settings.v1.json
+local.settings.v2.json
