@@ -229,6 +229,11 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<SharePointPage>(await response.Content.ReadAsStringAsync());
         }
 
+        public async Task PublishSharePointPageAsync(string siteId, string pageId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/pages/{pageId}/publish");
+        }
+
         public async Task<GraphCollection<Group>> GetAllGroupsAsync(string filter = null)
         {
             string query = string.IsNullOrEmpty(filter) ? string.Empty : $"?$filter={filter}";

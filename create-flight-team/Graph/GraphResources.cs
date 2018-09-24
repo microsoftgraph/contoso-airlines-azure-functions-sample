@@ -12,7 +12,7 @@ namespace create_flight_team.Graph
 
     public class Group : GraphResource
     {
-        public const string SchemaExtensionName = "ext19x0ug7l_contosoFlightTeam";
+        public const string SchemaExtensionName = "YOUR_SCHEMA_EXTENSION_NAME";
 
         public string Description { get; set; }
         public string DisplayName { get; set; }
@@ -229,13 +229,9 @@ namespace create_flight_team.Graph
 
     public class ListProperties
     {
-        public const string DocLibraryViewId = "5c8737ce-7642-483c-86f0-a1dd698f1668";
-        public const string ListViewId = "b48e4b66-7e47-499e-a79a-d238da845214";
-
         public bool IsDocumentLibrary { get; set; }
         public string SelectedListId { get; set; }
         public int WebpartHeightKey { get; set; }
-        public string SelectedViewId { get; set; }
     }
 
     public class GraphCollection<T>

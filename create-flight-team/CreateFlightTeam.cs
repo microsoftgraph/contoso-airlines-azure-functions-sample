@@ -394,7 +394,6 @@ namespace create_flight_team
                         {
                             IsDocumentLibrary = isDocLibrary,
                             SelectedListId = list.Id,
-                            SelectedViewId = isDocLibrary ? ListProperties.DocLibraryViewId : ListProperties.ListViewId,
                             WebpartHeightKey = 1
                         }
                     }
@@ -404,6 +403,9 @@ namespace create_flight_team
             }
 
             var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
+
+            // Publish the page
+            await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);
         }
 
         private static string GetTimestamp()
