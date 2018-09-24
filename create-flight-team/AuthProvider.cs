@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Clients.ActiveDirectory;
+﻿// Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using System;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;

@@ -1,3 +1,4 @@
+// Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.
 using create_flight_team.Graph;
 using create_flight_team.Models;
 using Microsoft.AspNetCore.Http;
@@ -405,7 +406,7 @@ namespace create_flight_team
             var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
 
             // Publish the page
-            await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);
+            await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);      
         }
 
         private static string GetTimestamp()

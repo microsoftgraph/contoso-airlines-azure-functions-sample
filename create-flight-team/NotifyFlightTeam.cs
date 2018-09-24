@@ -1,3 +1,4 @@
+// Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.
 using create_flight_team.Graph;
 using create_flight_team.Models;
 using Microsoft.AspNetCore.Http;
