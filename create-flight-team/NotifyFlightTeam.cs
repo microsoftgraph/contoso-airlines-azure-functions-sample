@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.Azure.WebJobs.Host;
-using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -20,10 +20,10 @@ namespace create_flight_team
         private static readonly string notifAppId = Environment.GetEnvironmentVariable("NotificationAppId");
         private static readonly bool sendCrossDeviceNotifications = !string.IsNullOrEmpty(notifAppId);
 
-        private static TraceWriter logger = null;
+        private static ILogger logger = null;
 
         [FunctionName("NotifyFlightTeam")]
-        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]HttpRequest req, TraceWriter log)
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]HttpRequest req, ILogger log)
         {
             logger = log;
 
@@ -31,7 +31,7 @@ namespace create_flight_team
             {
                 // Exchange token for Graph token via on-behalf-of flow
                 var graphToken = await AuthProvider.GetTokenOnBehalfOfAsync(req.Headers["Authorization"]);
-                log.Info($"Access token: {graphToken}");
+                logger.LogInformation($"Access token: {graphToken}");
 
                 string requestBody = new StreamReader(req.Body).ReadToEnd();
                 var request = JsonConvert.DeserializeObject<NotifyFlightTeamRequest>(requestBody);
@@ -40,16 +40,16 @@ namespace create_flight_team
 
                 return new OkResult();
             }
-            catch (AdalException ex)
+            catch (MsalException ex)
             {
-                log.Info($"Could not obtain Graph token: {ex.Message}");
+                logger.LogInformation($"Could not obtain Graph token: {ex.Message}");
                 // Just return 401 if something went wrong
                 // during token exchange
                 return new UnauthorizedResult();
             }
             catch (Exception ex)
             {
-                log.Info($"Exception occured: {ex.Message}");
+                logger.LogInformation($"Exception occured: {ex.Message}");
                 return new BadRequestObjectResult(ex);
             }
         }

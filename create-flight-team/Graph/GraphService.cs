@@ -1,5 +1,6 @@
 ﻿// Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.
 using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
@@ -21,12 +22,9 @@ namespace create_flight_team.Graph
         private readonly JsonSerializerSettings jsonSettings = 
             new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
 
-        private static readonly string teamsEndpoint = Environment.GetEnvironmentVariable("TeamsEndpoint");
-        private static readonly string sharePointEndpoint = Environment.GetEnvironmentVariable("SharePointEndPoint");
+        private ILogger logger = null;
 
-        private TraceWriter logger = null;
-
-        public GraphService(string accessToken, TraceWriter log = null)
+        public GraphService(string accessToken, ILogger log = null)
         {
             this.accessToken = accessToken;
             httpClient = new HttpClient();
@@ -143,7 +141,7 @@ namespace create_flight_team.Graph
             // Retry this call twice if it fails
             // There seems to be a delay between creating a Team and the drives being
             // fully created/enabled
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 4);
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 10);
             return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
         }
 
@@ -161,7 +159,7 @@ namespace create_flight_team.Graph
 
         public async Task<Plan> CreatePlanAsync(Plan plan)
         {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/planner/plans", plan);
+            var response = await MakeGraphCall(HttpMethod.Post, $"/planner/plans", plan, retries: 3);
             return JsonConvert.DeserializeObject<Plan>(await response.Content.ReadAsStringAsync());
         }
 
@@ -213,8 +211,7 @@ namespace create_flight_team.Graph
 
         public async Task AddTeamChannelTab(string teamId, string channelId, TeamsChannelTab tab)
         {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/tabs", tab, 
-                version: string.IsNullOrEmpty(teamsEndpoint) ? "beta" : teamsEndpoint);
+            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/tabs", tab);
         }
 
         public async Task<GraphCollection<SharePointList>> GetSiteListsAsync(string siteId)
@@ -225,8 +222,7 @@ namespace create_flight_team.Graph
 
         public async Task<SharePointPage> CreateSharePointPageAsync(string siteId, SharePointPage page)
         {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/pages", page,
-                version: string.IsNullOrEmpty(sharePointEndpoint) ? "beta" : sharePointEndpoint);
+            var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/pages", page);
             return JsonConvert.DeserializeObject<SharePointPage>(await response.Content.ReadAsStringAsync());
         }
 
@@ -262,8 +258,8 @@ namespace create_flight_team.Graph
 
             if (logger != null)
             {
-                logger.Info($"MakeGraphCall Request: {method} {uri}");
-                logger.Info($"MakeGraphCall Payload: {payload}");
+                logger.LogInformation($"MakeGraphCall Request: {method} {uri}");
+                logger.LogInformation($"MakeGraphCall Payload: {payload}");
             }
 
             do
@@ -283,11 +279,11 @@ namespace create_flight_team.Graph
                 if (!response.IsSuccessStatusCode)
                 {
                     if (logger != null)
-                        logger.Info($"MakeGraphCall Error: {response.StatusCode}");
+                        logger.LogInformation($"MakeGraphCall Error: {response.StatusCode}");
                     if (retries > 0)
                     {
                         if (logger != null)
-                            logger.Info($"MakeGraphCall Retrying after {retryDelay} seconds...({retries} retries remaining)");
+                            logger.LogInformation($"MakeGraphCall Retrying after {retryDelay} seconds...({retries} retries remaining)");
                         Thread.Sleep(retryDelay * 1000);
                         // Double the retry delay for subsequent retries
                         retryDelay += retryDelay;

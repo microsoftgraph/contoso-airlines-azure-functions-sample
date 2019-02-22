@@ -4,8 +4,8 @@
     <AzureFunctionsVersion>v2</AzureFunctionsVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.IdentityModel.Clients.ActiveDirectory" Version="3.19.8" />
-    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.19" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="2.7.1" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.24" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">
