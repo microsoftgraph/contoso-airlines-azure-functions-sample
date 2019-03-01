@@ -1,19 +1,23 @@
 ﻿// Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.v
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
 
-namespace create_flight_team.Graph
+namespace CreateFlightTeam.Graph
 {
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class GraphResource
     {
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public string Id { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Group : GraphResource
     {
-        public const string SchemaExtensionName = "YOUR_SCHEMA_EXTENSION_NAME";
+        public const string SchemaExtensionName = "ext8giz9c7n_contosoFlightTeam";
 
         public string Description { get; set; }
         public string DisplayName { get; set; }
@@ -33,11 +37,13 @@ namespace create_flight_team.Graph
         public List<string> Owners { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class ProvisioningExtension
     {
         public int SharePointItemId { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Team
     {
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
@@ -47,14 +53,20 @@ namespace create_flight_team.Graph
         public string WebUrl { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class TeamGuestSettings
     {
         public bool AllowCreateUpdateChannels { get; set; }
         public bool AllowDeleteChannels { get; set; }
     }
 
-    public class User : GraphResource { }
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class User : GraphResource
+    {
+        public string DisplayName { get; set; }
+    }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Invitation
     {
         public string InvitedUserEmailAddress { get; set; }
@@ -65,68 +77,109 @@ namespace create_flight_team.Graph
         public User InvitedUser { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class AddUserToGroup
     {
         [JsonProperty(PropertyName = "@odata.id")]
         public string UserPath { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Channel : GraphResource
     {
         public string DisplayName { get; set; }
         public string Description { get; set; }
     }
 
-    public class ChatThread
-    {
-        public ChatMessage RootMessage { get; set; }
-    }
-
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class ChatMessage
     {
         public ItemBody Body { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class ItemBody
     {
         public string Content { get; set; }
     }
 
-    public class TeamsApp : GraphResource { }
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class TeamsApp
+    {
+        [JsonIgnore]
+        public string AppId { get; set; }
+        [JsonProperty(PropertyName = "teamsApp@odata.bind")]
+        public string BoundAppId
+        {
+            get
+            {
+                return $"https://graph.microsoft.com/beta/appCatalogs/teamsApps/{AppId}";
+            }
+        }
+    }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Site : GraphResource
     {
         public SiteCollection SiteCollection { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class SiteCollection
     {
         public string Hostname { get; set; }
     }
 
-    public class DriveItem : GraphResource
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class Drive : GraphResource
     {
-        public ItemReference ParentReference { get; set; }
+        public string Name { get; set; }
+        public string DriveType { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class DriveItem : GraphResource
+    {
+        public string ETag { get; set; }
+        public ItemReference ParentReference { get; set; }
+        public FileFacet File { get; set; }
+        public DeletedFacet Deleted { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class FileFacet
+    {
+        public string MimeType { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class DeletedFacet
+    {
+        public string State { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class ItemReference
     {
         public string DriveId { get; set; }
         public string Id { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Plan : GraphResource
     {
         public string Title { get; set; }
         public string Owner { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Bucket : GraphResource
     {
         public string Name { get; set; }
         public string PlanId { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class PlannerTask : GraphResource
     {
         public string Title { get; set; }
@@ -135,6 +188,7 @@ namespace create_flight_team.Graph
         public DateTimeOffset DueDateTime { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class SharePointList : GraphResource
     {
         public string DisplayName { get; set; }
@@ -144,6 +198,7 @@ namespace create_flight_team.Graph
         public string WebUrl { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class ColumnDefinition
     {
         public string Name { get; set; }
@@ -153,12 +208,14 @@ namespace create_flight_team.Graph
 
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class TextColumn
     {
         [JsonProperty(PropertyName = "@odata.type")]
         public string Type { get { return "microsoft.graph.textColumn"; } }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class Notification : GraphResource
     {
         public string TargetHostName { get; set; }
@@ -171,6 +228,7 @@ namespace create_flight_team.Graph
         public int DisplayTimeToLive { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class NotificationPayload
     {
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
@@ -179,17 +237,20 @@ namespace create_flight_team.Graph
         public NotificationVisualContent VisualContent { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class NotificationVisualContent
     {
         public string Title { get; set; }
         public string Body { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class NotificationTargetPolicy
     {
         public string[] PlatformTypes { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class TeamsChannelTab : GraphResource
     {
         public string Name { get; set; }
@@ -197,6 +258,7 @@ namespace create_flight_team.Graph
         public TeamsChannelTabConfiguration Configuration { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class TeamsChannelTabConfiguration
     {
         public string EntityId { get; set; }
@@ -205,6 +267,7 @@ namespace create_flight_team.Graph
         public string WebsiteUrl { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class SharePointPage : GraphResource
     {
         public string Name { get; set; }
@@ -214,6 +277,17 @@ namespace create_flight_team.Graph
         public string WebUrl { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class Subscription : GraphResource
+    {
+        public string Resource { get; set; }
+        public string ChangeType { get; set; }
+        public string ClientState { get; set; }
+        public string NotificationUrl { get; set; }
+        public DateTime ExpirationDateTime { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class SharePointWebPart
     {
         public const string ListWebPart = "f92bf067-bc19-489e-a556-7fe95f508720";
@@ -222,12 +296,14 @@ namespace create_flight_team.Graph
         public WebPartData Data { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class WebPartData
     {
         public string DataVersion { get; set; }
         public object Properties { get; set; }
     }
 
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class ListProperties
     {
         public bool IsDocumentLibrary { get; set; }
@@ -235,8 +311,52 @@ namespace create_flight_team.Graph
         public int WebpartHeightKey { get; set; }
     }
 
+    public class LookupField
+    {
+        [JsonProperty(PropertyName = "LookupValue")]
+        public string DisplayName { get; set; }
+        public string Email { get; set; }
+    }
+
+    public class ListFields
+    {
+        [JsonProperty(PropertyName = "Description0")]
+        public string Description { get; set; }
+        [JsonProperty(PropertyName = "Flight_x0020_Number")]
+        public float FlightNumber { get; set; }
+        public List<LookupField> Pilots { get; set; }
+        public List<LookupField> FlightAttendants { get; set; }
+        public string CateringLiaison { get; set; }
+        public DateTime DepartureTime { get; set; }
+        public string DepartureGate { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class Identity : GraphResource
+    {
+        public string DisplayName { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class IdentitySet
+    {
+        public Identity User { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
+    public class ListItem : GraphResource
+    {
+        public IdentitySet CreatedBy { get; set; }
+        public ListFields Fields { get; set; }
+    }
+
+    [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     public class GraphCollection<T>
     {
         public List<T> Value { get; set; }
+        [JsonProperty(PropertyName = "@odata.nextLink")]
+        public string NextLink { get; set; }
+        [JsonProperty(PropertyName = "@odata.deltaLink")]
+        public string DeltaLink { get; set; }
     }
 }

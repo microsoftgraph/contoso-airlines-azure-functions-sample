@@ -1,118 +1,117 @@
-// Copyright (c) Microsoft. All rights reserved. Licensed under the MIT license. See LICENSE.txt in the project root for license information.
-using create_flight_team.Graph;
-using create_flight_team.Models;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
+﻿using CreateFlightTeam.Graph;
+using CreateFlightTeam.Models;
 using Microsoft.Extensions.Logging;
-using Microsoft.Identity.Client;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace create_flight_team
+namespace CreateFlightTeam.Provisioning
 {
-    public static class CreateFlightTeam
+    public static class TeamProvisioning
     {
         private static readonly string teamAppId = Environment.GetEnvironmentVariable("TeamAppToInstall");
-        private static readonly string flightAdminSite = Environment.GetEnvironmentVariable("FlightAdminSite");
-        private static readonly string flightLogFile = Environment.GetEnvironmentVariable("FlightLogFile");
         private static readonly string tenantName = Environment.GetEnvironmentVariable("TenantName");
 
-        private static ILogger logger = null;
+        private static GraphService graphClient;
+        private static ILogger logger;
 
-        [FunctionName("CreateFlightTeam")]
-        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)]HttpRequest req, ILogger log)
+        public static void Initialize(GraphService client, ILogger log)
         {
+            graphClient = client;
             logger = log;
-
-            try
-            {
-                // Exchange token for Graph token via on-behalf-of flow
-                var graphToken = await AuthProvider.GetTokenOnBehalfOfAsync(req.Headers["Authorization"]);
-                logger.LogInformation($"Access token: {graphToken}");
-
-                string requestBody = new StreamReader(req.Body).ReadToEnd();
-                var request = JsonConvert.DeserializeObject<CreateFlightTeamRequest>(requestBody);
-
-                await ProvisionTeamAsync(graphToken, request);
-
-                return new OkObjectResult(new CreateFlightTeamResponse { Result = "success" });
-            }
-            catch (MsalException ex)
-            {
-                logger.LogInformation($"Could not obtain Graph token: {ex.Message}");
-                // Just return 401 if something went wrong
-                // during token exchange
-                return new UnauthorizedResult();
-            }
-            catch (Exception ex)
-            {
-                logger.LogInformation($"Exception occured: {ex.Message}");
-                return new BadRequestObjectResult(new CreateFlightTeamResponse { Result = "failed", Details = ex });
-            }
         }
 
-        private static async Task ProvisionTeamAsync(string accessToken, CreateFlightTeamRequest request)
+        public static async Task<string> ProvisionTeamAsync(FlightTeam flightTeam)
         {
-            // Initialize Graph client
-            var graphClient = new GraphService(accessToken, logger);
-
             // Create the unified group
-            var group = await CreateUnifiedGroupAsync(graphClient, request);
+            var group = await CreateUnifiedGroupAsync(flightTeam);
 
             // Create the team in the group
-            var teamChannel = await InitializeTeamInGroupAsync(graphClient, group.Id, 
-                $"Welcome to Flight {request.FlightNumber}!");
+            var teamChannel = await InitializeTeamInGroupAsync(group.Id,
+                $"Welcome to Flight {flightTeam.FlightNumber}!");
 
             // Create Planner plan and tasks
-            await CreatePreflightPlanAsync(graphClient, group.Id, teamChannel.Id, request.DepartureTime);
+            // TODO: Disabled because you cannot create planner plans with app-only token
+            // await CreatePreflightPlanAsync(group.Id, teamChannel.Id, flightTeam.DepartureTime);
 
             // Create SharePoint list
-            await CreateChallengingPassengersListAsync(graphClient, group.Id, teamChannel.Id);
+            await CreateChallengingPassengersListAsync(group.Id, teamChannel.Id);
 
             // Create SharePoint page
-            await CreateSharePointPageAsync(graphClient, group.Id, request.FlightNumber);
+            await CreateSharePointPageAsync(group.Id, flightTeam.FlightNumber);
 
-            // Copy flight log template to team files
-            await CopyFlightLogToTeamFilesAsync(graphClient, group.Id);
+            return group.Id;
         }
 
-        private static async Task<Group> CreateUnifiedGroupAsync(GraphService graphClient, CreateFlightTeamRequest request)
+        public static async Task UpdateTeamAsync(FlightTeam originalTeam, FlightTeam updatedTeam)
+        {
+            // Look for changes that require an update via Graph
+            // Did the admin change?
+            if (!updatedTeam.Admin.Equals(originalTeam.Admin))
+            {
+                // Add new owner
+                await graphClient.AddMemberAsync(originalTeam.Id, updatedTeam.Admin, true);
+                // Remove old owner
+                await graphClient.RemoveMemberAsync(originalTeam.Id, originalTeam.Admin, true);
+            }
+
+            // Add new pilots
+            var newPilots = updatedTeam.Pilots.Except(originalTeam.Pilots);
+            foreach (var pilot in newPilots)
+            {
+                await graphClient.AddMemberAsync(originalTeam.Id, pilot);
+            }
+
+            // Remove any removed pilots
+            var removedPilots = originalTeam.Pilots.Except(updatedTeam.Pilots);
+            foreach (var pilot in removedPilots)
+            {
+                await graphClient.RemoveMemberAsync(originalTeam.Id, pilot);
+            }
+
+            // Add new flight attendants
+            var newFlightAttendants = updatedTeam.FlightAttendants.Except(originalTeam.FlightAttendants);
+            foreach (var attendant in newFlightAttendants)
+            {
+                await graphClient.AddMemberAsync(originalTeam.Id, attendant);
+            }
+
+            // Remove any removed flight attendants
+            var removedFlightAttendants = originalTeam.FlightAttendants.Except(updatedTeam.FlightAttendants);
+            foreach (var attendant in removedFlightAttendants)
+            {
+                await graphClient.RemoveMemberAsync(originalTeam.Id, attendant);
+            }
+        }
+
+        public static async Task ArchiveTeamAsync(string teamId)
+        {
+            // Archive each matching team
+            await graphClient.ArchiveTeamAsync(teamId);
+        }
+
+        private static async Task<Group> CreateUnifiedGroupAsync(FlightTeam flightTeam)
         {
             // Initialize members list with pilots and flight attendants
-            var members = await graphClient.GetUserIds(request.Pilots, request.FlightAttendants);
-
-            // Handle admins
-            var admin = await graphClient.GetUserByUpn(request.Admin);
-            var me = await graphClient.GetMe();
+            var members = await graphClient.GetUserIds(flightTeam.Pilots, flightTeam.FlightAttendants);
 
             // Add admin and me as members
-            members.Add($"https://graph.microsoft.com/beta/users/{admin.Id}");
-            members.Add($"https://graph.microsoft.com/beta/users/{me.Id}");
+            members.Add($"https://graph.microsoft.com/beta/users/{flightTeam.Admin}");
 
             // Create owner list
-            var owners = new List<string>()
-            {
-                $"https://graph.microsoft.com/beta/users/{admin.Id}",
-                $"https://graph.microsoft.com/beta/users/{me.Id}"
-            };
+            var owners = new List<string>() { $"https://graph.microsoft.com/beta/users/{flightTeam.Admin}" };
 
             // Create the group
             var flightGroup = new Group
             {
-                DisplayName = $"Flight {request.FlightNumber}",
-                Description = request.Description,
+                DisplayName = $"Flight {flightTeam.FlightNumber}",
+                Description = flightTeam.Description,
                 Visibility = "Private",
                 MailEnabled = true,
-                MailNickname = $"flight{request.FlightNumber}{GetTimestamp()}",
+                MailNickname = $"flight{flightTeam.FlightNumber}{GetTimestamp()}",
                 GroupTypes = new string[] { "Unified" },
                 SecurityEnabled = false,
-                Extension = new ProvisioningExtension { SharePointItemId = request.SharePointItemId },
                 Members = members.Distinct().ToList(),
                 Owners = owners.Distinct().ToList()
             };
@@ -123,7 +122,7 @@ namespace create_flight_team
             // Add catering liaison as a guest
             var guestInvite = new Invitation
             {
-                InvitedUserEmailAddress = request.CateringLiaison,
+                InvitedUserEmailAddress = flightTeam.CateringLiaison,
                 InviteRedirectUrl = "https://teams.microsoft.com",
                 SendInvitationMessage = true
             };
@@ -137,7 +136,7 @@ namespace create_flight_team
             return createdGroup;
         }
 
-        private static async Task<Channel> InitializeTeamInGroupAsync(GraphService graphClient, string groupId, string welcomeMessage)
+        private static async Task<Channel> InitializeTeamInGroupAsync(string groupId, string welcomeMessage)
         {
             // Create the team
             var team = new Team
@@ -159,17 +158,17 @@ namespace create_flight_team
             // channel after creation, just get the first result.
             var generalChannel = channels.Value.First();
 
-            // Create welcome message (new thread)
-            var welcomeThread = new ChatThread
-            {
-                RootMessage = new ChatMessage
-                {
-                    Body = new ItemBody { Content = welcomeMessage }
-                }
-            };
+            //// Create welcome message (new thread)
+            //var welcomeThread = new ChatThread
+            //{
+            //    RootMessage = new ChatMessage
+            //    {
+            //        Body = new ItemBody { Content = welcomeMessage }
+            //    }
+            //};
 
-            await graphClient.CreateChatThreadAsync(groupId, generalChannel.Id, welcomeThread);
-            logger.LogInformation("Posted welcome message");
+            //await graphClient.CreateChatThreadAsync(groupId, generalChannel.Id, welcomeThread);
+            //logger.LogInformation("Posted welcome message");
 
             // Provision pilot channel
             var pilotChannel = new Channel
@@ -196,7 +195,7 @@ namespace create_flight_team
             {
                 var teamsApp = new TeamsApp
                 {
-                    Id = teamAppId
+                    AppId = teamAppId
                 };
 
                 await graphClient.AddAppToTeam(groupId, teamsApp);
@@ -207,38 +206,7 @@ namespace create_flight_team
             return generalChannel;
         }
 
-        private static async Task CopyFlightLogToTeamFilesAsync(GraphService graphClient, string groupId)
-        {
-            // Upload flight log to team files
-            // Get root site to determine SP host name
-            var rootSite = await graphClient.GetSharePointSiteAsync("root");
-
-            // Get flight admin site
-            var adminSite = await graphClient.GetSharePointSiteAsync(
-                $"{rootSite.SiteCollection.Hostname}:/sites/{flightAdminSite}");
-            logger.LogInformation("Got flight admin site");
-
-            // Get the flight log document
-            var flightLog = await graphClient.GetOneDriveItemAsync(
-                adminSite.Id, $"root:/{flightLogFile}");
-            logger.LogInformation("Got flight log document");
-
-            // Get the files folder in the team OneDrive
-            var teamDrive = await graphClient.GetTeamOneDriveFolderAsync(groupId, "General");
-            logger.LogInformation("Got team OneDrive General folder");
-
-            // Copy the file from SharePoint to team drive
-            var teamDriveReference = new ItemReference
-            {
-                DriveId = teamDrive.ParentReference.DriveId,
-                Id = teamDrive.Id
-            };
-
-            await graphClient.CopySharePointFileAsync(adminSite.Id, flightLog.Id, teamDriveReference);
-            logger.LogInformation("Copied file to team files");
-        }
-
-        private static async Task CreatePreflightPlanAsync(GraphService graphClient, string groupId, string channelId, DateTimeOffset departureTime)
+        private static async Task CreatePreflightPlanAsync(string groupId, string channelId, DateTimeOffset departureTime)
         {
             // Create a "Pre-flight checklist" plan
             var preFlightCheckList = new Plan
@@ -305,7 +273,7 @@ namespace create_flight_team
             await graphClient.AddTeamChannelTab(groupId, channelId, plannerTab);
         }
 
-        private static async Task<SharePointList> CreateChallengingPassengersListAsync(GraphService graphClient, string groupId, string channelId)
+        private static async Task<SharePointList> CreateChallengingPassengersListAsync(string groupId, string channelId)
         {
             // Get the team site
             var teamSite = await graphClient.GetTeamSiteAsync(groupId);
@@ -353,7 +321,7 @@ namespace create_flight_team
             return createdList;
         }
 
-        private static async Task CreateSharePointPageAsync(GraphService graphClient, string groupId, float flightNumber)
+        private static async Task CreateSharePointPageAsync(string groupId, float flightNumber)
         {
             // Get the team site
             var teamSite = await graphClient.GetTeamSiteAsync(groupId);
@@ -394,7 +362,7 @@ namespace create_flight_team
             var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
 
             // Publish the page
-            await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);      
+            await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);
         }
 
         private static string GetTimestamp()

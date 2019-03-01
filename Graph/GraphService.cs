@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace create_flight_team.Graph
+namespace CreateFlightTeam.Graph
 {
     public class GraphService
     {
@@ -19,7 +19,7 @@ namespace create_flight_team.Graph
 
         private readonly string accessToken = string.Empty;
         private HttpClient httpClient = null;
-        private readonly JsonSerializerSettings jsonSettings = 
+        private readonly JsonSerializerSettings jsonSettings =
             new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
 
         private ILogger logger = null;
@@ -36,7 +36,7 @@ namespace create_flight_team.Graph
             logger = log;
         }
 
-        public async Task<List<string>> GetUserIds(string[] pilots, string[] flightAttendants)
+        public async Task<List<string>> GetUserIds(List<string> pilots, List<string> flightAttendants)
         {
             var userIds = new List<string>();
 
@@ -95,11 +95,20 @@ namespace create_flight_team.Graph
             var addUserPayload = new AddUserToGroup() { UserPath = $"{graphEndpoint}beta/users/{userId}" };
             await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/members/$ref", addUserPayload);
 
-            // Step 3 -- Add the ID to the owners of group if requested
             if (isOwner)
             {
                 await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/owners/$ref", addUserPayload);
             }
+        }
+
+        public async Task RemoveMemberAsync(string teamId, string userId, bool isOwner = false)
+        {
+            if (isOwner)
+            {
+                await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/owners/{userId}/$ref");
+            }
+
+            await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/members/{userId}/$ref");
         }
 
         public async Task<GraphCollection<Channel>> GetTeamChannelsAsync(string teamId)
@@ -108,9 +117,9 @@ namespace create_flight_team.Graph
             return JsonConvert.DeserializeObject<GraphCollection<Channel>>(await response.Content.ReadAsStringAsync());
         }
 
-        public async Task CreateChatThreadAsync(string teamId, string channelId, ChatThread thread)
+        public async Task CreateChatMessageAsync(string teamId, string channelId, ChatMessage message)
         {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/chatThreads", thread);
+            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/messages", message);
         }
 
         public async Task<Channel> CreateTeamChannelAsync(string teamId, Channel channel)
@@ -121,13 +130,43 @@ namespace create_flight_team.Graph
 
         public async Task AddAppToTeam(string teamId, TeamsApp app)
         {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/apps", app);
+            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/installedApps", app);
         }
 
         public async Task<Site> GetSharePointSiteAsync(string sitePath)
         {
             var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{sitePath}");
             return JsonConvert.DeserializeObject<Site>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task<SharePointList> GetSharePointListAsync(string siteId, string listName)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/lists?$top=50");
+            var lists = JsonConvert.DeserializeObject<GraphCollection<SharePointList>>(await response.Content.ReadAsStringAsync());
+            foreach(var list in lists.Value)
+            {
+                if (list.DisplayName == listName)
+                {
+                    return list;
+                }
+            }
+
+            return null;
+        }
+
+        public async Task<Drive> GetSiteDriveAsync(string siteId, string driveName)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/drives?$top=50");
+            var drives = JsonConvert.DeserializeObject<GraphCollection<Drive>>(await response.Content.ReadAsStringAsync());
+            foreach (var drive in drives.Value)
+            {
+                if (drive.Name == driveName)
+                {
+                    return drive;
+                }
+            }
+
+            return null;
         }
 
         public async Task<DriveItem> GetOneDriveItemAsync(string siteId, string itemPath)
@@ -197,7 +236,7 @@ namespace create_flight_team.Graph
         {
             var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/archive");
         }
-        
+
         public async Task<GraphCollection<User>> GetGroupMembersAsync(string groupId)
         {
             var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{groupId}/members");
@@ -243,6 +282,44 @@ namespace create_flight_team.Graph
             var response = await MakeGraphCall(HttpMethod.Delete, $"/groups/{groupId}");
         }
 
+        public async Task<Subscription> CreateListSubscription(string listUrl, string notificationUrl)
+        {
+            var newSubscription = new Subscription
+            {
+                ClientState = Guid.NewGuid().ToString(),
+                Resource = listUrl,
+                ChangeType = "updated",
+                ExpirationDateTime = DateTime.UtcNow.AddDays(2),
+                NotificationUrl = notificationUrl
+            };
+
+            var response = await MakeGraphCall(HttpMethod.Post, "/subscriptions", newSubscription);
+            return JsonConvert.DeserializeObject<Subscription>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task RemoveAllSubscriptions()
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, "/subscriptions");
+            var subscriptions = JsonConvert.DeserializeObject<GraphCollection<Subscription>>(await response.Content.ReadAsStringAsync());
+
+            foreach (var subscription in subscriptions.Value)
+            {
+                await MakeGraphCall(HttpMethod.Delete, $"/subscriptions/{subscription.Id}");
+            }
+        }
+
+        public async Task<GraphCollection<DriveItem>> GetListDelta(string requestUrl)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, requestUrl);
+            return JsonConvert.DeserializeObject<GraphCollection<DriveItem>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task<ListItem> GetDriveItemListItem(string driveId, string itemId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/drives/{driveId}/items/{itemId}/listItem");
+            return JsonConvert.DeserializeObject<ListItem> (await response.Content.ReadAsStringAsync());
+        }
+
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
         {
             // Initialize retry delay to 3 secs
@@ -266,7 +343,7 @@ namespace create_flight_team.Graph
             {
                 // Create the request
                 var request = new HttpRequestMessage(method, $"{graphEndpoint}{version}{uri}");
-                
+
 
                 if (!string.IsNullOrEmpty(payload))
                 {
