@@ -122,6 +122,7 @@ namespace CreateFlightTeam.Graph
     public class Site : GraphResource
     {
         public SiteCollection SiteCollection { get; set; }
+        public string WebUrl { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]

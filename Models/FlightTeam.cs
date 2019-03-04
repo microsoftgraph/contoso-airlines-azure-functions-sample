@@ -32,27 +32,39 @@ namespace CreateFlightTeam.Models
         public string CateringLiaison { get; set; }
 
         public FlightTeam() { }
-        public FlightTeam(ListItem listItem)
+        public static FlightTeam FromListItem(string itemId, ListItem listItem)
         {
-            SharePointListItemId = listItem.Id;
-            Description = listItem.Fields.Description;
-            FlightNumber = (int)listItem.Fields.FlightNumber;
-            DepartureGate = listItem.Fields.DepartureGate;
-            DepartureTime = listItem.Fields.DepartureTime;
-            Admin = listItem.CreatedBy.User.Id;
-            CateringLiaison = listItem.Fields.CateringLiaison;
+            if (string.IsNullOrEmpty(listItem.Fields.Description) ||
+                string.IsNullOrEmpty(listItem.Fields.DepartureGate) ||
+                listItem.Fields.FlightNumber <= 0 ||
+                listItem.Fields.DepartureTime == DateTime.MinValue)
+            {
+                return null;
+            }
 
-            Pilots = new List<string>();
+            var team = new FlightTeam();
+
+            team.SharePointListItemId = itemId;
+            team.Description = listItem.Fields.Description;
+            team.FlightNumber = (int)listItem.Fields.FlightNumber;
+            team.DepartureGate = listItem.Fields.DepartureGate;
+            team.DepartureTime = listItem.Fields.DepartureTime;
+            team.Admin = listItem.CreatedBy.User.Id;
+            team.CateringLiaison = listItem.Fields.CateringLiaison;
+
+            team.Pilots = new List<string>();
             foreach (var value in listItem.Fields.Pilots)
             {
-                Pilots.Add(value.Email);
+                team.Pilots.Add(value.Email);
             }
 
-            FlightAttendants = new List<string>();
+            team.FlightAttendants = new List<string>();
             foreach (var value in listItem.Fields.FlightAttendants)
             {
-                FlightAttendants.Add(value.Email);
+                team.FlightAttendants.Add(value.Email);
             }
+
+            return team;
         }
     }
 }

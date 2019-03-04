@@ -39,7 +39,7 @@ namespace CreateFlightTeam.Provisioning
             await CreateChallengingPassengersListAsync(group.Id, teamChannel.Id);
 
             // Create SharePoint page
-            await CreateSharePointPageAsync(group.Id, flightTeam.FlightNumber);
+            await CreateSharePointPageAsync(group.Id, teamChannel.Id, flightTeam.FlightNumber);
 
             return group.Id;
         }
@@ -48,40 +48,54 @@ namespace CreateFlightTeam.Provisioning
         {
             // Look for changes that require an update via Graph
             // Did the admin change?
-            if (!updatedTeam.Admin.Equals(originalTeam.Admin))
+            var admin = await graphClient.GetUserByUpn(updatedTeam.Admin);
+            updatedTeam.Admin = admin.Id;
+            if (!admin.Id.Equals(originalTeam.Admin))
             {
                 // Add new owner
-                await graphClient.AddMemberAsync(originalTeam.Id, updatedTeam.Admin, true);
+                await graphClient.AddMemberAsync(originalTeam.TeamId, admin.Id, true);
                 // Remove old owner
-                await graphClient.RemoveMemberAsync(originalTeam.Id, originalTeam.Admin, true);
+                await graphClient.RemoveMemberAsync(originalTeam.TeamId, admin.Id, true);
             }
 
             // Add new pilots
             var newPilots = updatedTeam.Pilots.Except(originalTeam.Pilots);
             foreach (var pilot in newPilots)
             {
-                await graphClient.AddMemberAsync(originalTeam.Id, pilot);
+                var pilotUser = await graphClient.GetUserByUpn(pilot);
+                await graphClient.AddMemberAsync(originalTeam.TeamId, pilotUser.Id);
             }
 
             // Remove any removed pilots
             var removedPilots = originalTeam.Pilots.Except(updatedTeam.Pilots);
             foreach (var pilot in removedPilots)
             {
-                await graphClient.RemoveMemberAsync(originalTeam.Id, pilot);
+                var pilotUser = await graphClient.GetUserByUpn(pilot);
+                await graphClient.RemoveMemberAsync(originalTeam.TeamId, pilotUser.Id);
             }
 
             // Add new flight attendants
             var newFlightAttendants = updatedTeam.FlightAttendants.Except(originalTeam.FlightAttendants);
             foreach (var attendant in newFlightAttendants)
             {
-                await graphClient.AddMemberAsync(originalTeam.Id, attendant);
+                var attendantUser = await graphClient.GetUserByUpn(attendant);
+                await graphClient.AddMemberAsync(originalTeam.TeamId, attendantUser.Id);
             }
 
             // Remove any removed flight attendants
             var removedFlightAttendants = originalTeam.FlightAttendants.Except(updatedTeam.FlightAttendants);
             foreach (var attendant in removedFlightAttendants)
             {
-                await graphClient.RemoveMemberAsync(originalTeam.Id, attendant);
+                var attendantUser = await graphClient.GetUserByUpn(attendant);
+                await graphClient.RemoveMemberAsync(originalTeam.TeamId, attendantUser.Id);
+            }
+
+            // Swap out catering liaison if needed
+            if (!updatedTeam.CateringLiaison.Equals(originalTeam.CateringLiaison))
+            {
+                var oldCateringLiaison = await graphClient.GetUserByEmail(originalTeam.CateringLiaison);
+                await graphClient.RemoveMemberAsync(originalTeam.TeamId, oldCateringLiaison.Id);
+                await AddGuestUser(originalTeam.TeamId, updatedTeam.CateringLiaison);
             }
         }
 
@@ -119,10 +133,20 @@ namespace CreateFlightTeam.Provisioning
             var createdGroup = await graphClient.CreateGroupAsync(flightGroup);
             logger.LogInformation("Created group");
 
+            if (!string.IsNullOrEmpty(flightTeam.CateringLiaison))
+            {
+                await AddGuestUser(createdGroup.Id, flightTeam.CateringLiaison);
+            }
+
+            return createdGroup;
+        }
+
+        private static async Task AddGuestUser(string groupId, string email)
+        {
             // Add catering liaison as a guest
             var guestInvite = new Invitation
             {
-                InvitedUserEmailAddress = flightTeam.CateringLiaison,
+                InvitedUserEmailAddress = email,
                 InviteRedirectUrl = "https://teams.microsoft.com",
                 SendInvitationMessage = true
             };
@@ -130,10 +154,8 @@ namespace CreateFlightTeam.Provisioning
             var createdInvite = await graphClient.CreateGuestInvitationAsync(guestInvite);
 
             // Add guest user to team
-            await graphClient.AddMemberAsync(createdGroup.Id, createdInvite.InvitedUser.Id);
+            await graphClient.AddMemberAsync(groupId, createdInvite.InvitedUser.Id);
             logger.LogInformation("Added guest user");
-
-            return createdGroup;
         }
 
         private static async Task<Channel> InitializeTeamInGroupAsync(string groupId, string welcomeMessage)
@@ -305,6 +327,7 @@ namespace CreateFlightTeam.Provisioning
             var createdList = await graphClient.CreateSharePointListAsync(teamSite.Id, challengingPassengers);
 
             // Add the list as a team tab
+            /*
             var listTab = new TeamsChannelTab
             {
                 Name = "Challenging Passengers",
@@ -317,11 +340,12 @@ namespace CreateFlightTeam.Provisioning
             };
 
             await graphClient.AddTeamChannelTab(groupId, channelId, listTab);
+             */
 
             return createdList;
         }
 
-        private static async Task CreateSharePointPageAsync(string groupId, float flightNumber)
+        private static async Task CreateSharePointPageAsync(string groupId, string channelId, float flightNumber)
         {
             // Get the team site
             var teamSite = await graphClient.GetTeamSiteAsync(groupId);
@@ -363,6 +387,23 @@ namespace CreateFlightTeam.Provisioning
 
             // Publish the page
             await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);
+            var pageUrl = createdPage.WebUrl.StartsWith("https") ? createdPage.WebUrl :
+                $"{teamSite.WebUrl}/{createdPage.WebUrl}";
+
+            // Add the list as a team tab
+            var pageTab = new TeamsChannelTab
+            {
+                Name = createdPage.Title,
+                TeamsAppId = "com.microsoft.teamspace.tab.web",
+                Configuration = new TeamsChannelTabConfiguration
+                {
+                    // TODO: This is a relative link, need to fully qualify
+                    ContentUrl = pageUrl,
+                    WebsiteUrl = pageUrl
+                }
+            };
+
+            await graphClient.AddTeamChannelTab(groupId, channelId, pageTab);
         }
 
         private static string GetTimestamp()

@@ -68,6 +68,13 @@ namespace CreateFlightTeam.Graph
             return JsonConvert.DeserializeObject<User>(await response.Content.ReadAsStringAsync());
         }
 
+        public async Task<User> GetUserByEmail(string email)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/users?$filter=mail eq '{email}'");
+            var collection = JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
+            return collection.Value[0];
+        }
+
         public async Task<Group> CreateGroupAsync(Group group)
         {
             var response = await MakeGraphCall(HttpMethod.Post, "/groups", group);
@@ -81,7 +88,7 @@ namespace CreateFlightTeam.Graph
 
         public async Task CreateTeamAsync(string groupId, Team team)
         {
-            var response = await MakeGraphCall(HttpMethod.Put, $"/groups/{groupId}/team", team);
+            var response = await MakeGraphCall(HttpMethod.Put, $"/groups/{groupId}/team", team, retries:3);
         }
 
         public async Task<Invitation> CreateGuestInvitationAsync(Invitation invite)
@@ -93,11 +100,26 @@ namespace CreateFlightTeam.Graph
         public async Task AddMemberAsync(string teamId, string userId, bool isOwner = false)
         {
             var addUserPayload = new AddUserToGroup() { UserPath = $"{graphEndpoint}beta/users/{userId}" };
-            await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/members/$ref", addUserPayload);
+
+            try
+            {
+                await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/members/$ref", addUserPayload);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning($"Add member returned an error: {ex.Message}");
+            }
 
             if (isOwner)
             {
-                await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/owners/$ref", addUserPayload);
+                try
+                {
+                    await MakeGraphCall(HttpMethod.Post, $"/groups/{teamId}/owners/$ref", addUserPayload);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning($"Add owner returned an error: {ex.Message}");
+                }
             }
         }
 
@@ -180,7 +202,7 @@ namespace CreateFlightTeam.Graph
             // Retry this call twice if it fails
             // There seems to be a delay between creating a Team and the drives being
             // fully created/enabled
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 10);
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 3);
             return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
         }
 
@@ -316,8 +338,17 @@ namespace CreateFlightTeam.Graph
 
         public async Task<ListItem> GetDriveItemListItem(string driveId, string itemId)
         {
-            var response = await MakeGraphCall(HttpMethod.Get, $"/drives/{driveId}/items/{itemId}/listItem");
-            return JsonConvert.DeserializeObject<ListItem> (await response.Content.ReadAsStringAsync());
+            try
+            {
+                var response = await MakeGraphCall(HttpMethod.Get, $"/drives/{driveId}/items/{itemId}/listItem");
+                return JsonConvert.DeserializeObject<ListItem> (await response.Content.ReadAsStringAsync());
+            }
+            catch (Exception)
+            {
+                // When document is first created and no fields are filled in, this call
+                // fails with a NotFound error
+                return null;
+            }
         }
 
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
@@ -341,8 +372,9 @@ namespace CreateFlightTeam.Graph
 
             do
             {
+                var requestUrl = uri.StartsWith("https") ? uri : $"{graphEndpoint}{version}{uri}";
                 // Create the request
-                var request = new HttpRequestMessage(method, $"{graphEndpoint}{version}{uri}");
+                var request = new HttpRequestMessage(method, requestUrl);
 
 
                 if (!string.IsNullOrEmpty(payload))

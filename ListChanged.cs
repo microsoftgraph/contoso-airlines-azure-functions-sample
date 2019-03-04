@@ -199,32 +199,39 @@ namespace CreateFlightTeam
             {
                 var delta = await graphClient.GetListDelta(deltaRequestUrl);
 
-                // TODO: Process items
                 foreach(var item in delta.Value)
                 {
-                    // Query the database
-                    var teams = await DatabaseHelper.GetFlightTeamsAsync(f => f.SharePointListItemId.Equals(item.Id));
-                    var team = teams.FirstOrDefault();
-
-                    if (item.Deleted != null && team != null)
-                    {
-                        // Remove the team
-                        await TeamProvisioning.ArchiveTeamAsync(team.TeamId);
-
-                        // Remove the database item
-                        await DatabaseHelper.DeleteFlightTeamAsync(team.Id);
-
-                        continue;
-                    }
-
                     if (item.File != null)
                     {
+                        // Query the database
+                        var teams = await DatabaseHelper.GetFlightTeamsAsync(f => f.SharePointListItemId.Equals(item.Id));
+                        var team = teams.FirstOrDefault();
+
+                        if (item.Deleted != null && team != null)
+                        {
+                            // Remove the team
+                            await TeamProvisioning.ArchiveTeamAsync(team.TeamId);
+
+                            // Remove the database item
+                            await DatabaseHelper.DeleteFlightTeamAsync(team.Id);
+
+                            continue;
+                        }
+
                         // Get the file's list data
                         var listItem = await graphClient.GetDriveItemListItem(item.ParentReference.DriveId, item.Id);
+                        if (listItem == null) continue;
 
                         if (team == null)
                         {
-                            team = new FlightTeam(listItem);
+                            team = FlightTeam.FromListItem(item.Id, listItem);
+                            if (team == null)
+                            {
+                                // Item was added to list but required metadata
+                                // isn't filled in yet. No-op.
+                                continue;
+                            }
+
                             // New item, provision team
                             team.TeamId = await TeamProvisioning.ProvisionTeamAsync(team);
 
@@ -232,14 +239,12 @@ namespace CreateFlightTeam
                         }
                         else
                         {
-                            var updatedTeam = new FlightTeam(listItem)
-                            {
-                                SharePointListItemId = team.SharePointListItemId,
-                                TeamId = team.TeamId
-                            };
+                            var updatedTeam = FlightTeam.FromListItem(item.Id, listItem);
+                            updatedTeam.TeamId = team.TeamId;
 
                             await TeamProvisioning.UpdateTeamAsync(team, updatedTeam);
                             // Existing item, process changes
+                            updatedTeam.Id = team.Id;
                             await DatabaseHelper.UpdateFlightTeamAsync(team.Id, updatedTeam);
 
                             // TODO: Check for changes to gate, time and queue notification
