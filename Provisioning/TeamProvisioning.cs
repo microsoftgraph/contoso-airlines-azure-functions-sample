@@ -1,6 +1,7 @@
 ﻿using CreateFlightTeam.Graph;
 using CreateFlightTeam.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Graph;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -126,9 +127,11 @@ namespace CreateFlightTeam.Provisioning
                 MailNickname = $"flight{flightTeam.FlightNumber}{GetTimestamp()}",
                 GroupTypes = new string[] { "Unified" },
                 SecurityEnabled = false,
-                Members = members.Distinct().ToList(),
-                Owners = owners.Distinct().ToList()
+                AdditionalData = new Dictionary<string, object>()
             };
+
+            flightGroup.AdditionalData.Add("members@odata.bind", members);
+            flightGroup.AdditionalData.Add("owners@odata.bind", owners);
 
             var createdGroup = await graphClient.CreateGroupAsync(flightGroup);
             logger.LogInformation("Created group");
@@ -178,7 +181,7 @@ namespace CreateFlightTeam.Provisioning
 
             // Get "General" channel. Since it is created by default and is the only
             // channel after creation, just get the first result.
-            var generalChannel = channels.Value.First();
+            var generalChannel = channels.CurrentPage.First();
 
             //// Create welcome message (new thread)
             //var welcomeThread = new ChatThread
@@ -215,10 +218,13 @@ namespace CreateFlightTeam.Provisioning
             // Add the requested team app
             if (!string.IsNullOrEmpty(teamAppId))
             {
-                var teamsApp = new TeamsApp
+                var teamsApp = new TeamsAppInstallation
                 {
-                    AppId = teamAppId
+                    AdditionalData = new Dictionary<string, object>()
                 };
+
+                teamsApp.AdditionalData.Add("teamsApp@odata.bind",
+                    $"https://graph.microsoft.com/beta/appCatalogs/teamsApps/{teamAppId}");
 
                 await graphClient.AddAppToTeam(groupId, teamsApp);
             }
@@ -231,7 +237,7 @@ namespace CreateFlightTeam.Provisioning
         private static async Task CreatePreflightPlanAsync(string groupId, string channelId, DateTimeOffset departureTime)
         {
             // Create a "Pre-flight checklist" plan
-            var preFlightCheckList = new Plan
+            var preFlightCheckList = new PlannerPlan
             {
                 Title = "Pre-flight Checklist",
                 Owner = groupId
@@ -241,7 +247,7 @@ namespace CreateFlightTeam.Provisioning
             logger.LogInformation("Create plan");
 
             // Create buckets
-            var toDoBucket = new Bucket
+            var toDoBucket = new PlannerBucket
             {
                 Name = "To Do",
                 PlanId = createdPlan.Id
@@ -249,7 +255,7 @@ namespace CreateFlightTeam.Provisioning
 
             var createdToDoBucket = await graphClient.CreateBucketAsync(toDoBucket);
 
-            var completedBucket = new Bucket
+            var completedBucket = new PlannerBucket
             {
                 Name = "Completed",
                 PlanId = createdPlan.Id
@@ -279,11 +285,11 @@ namespace CreateFlightTeam.Provisioning
             await graphClient.CreatePlannerTaskAsync(ensureFoodBevStock);
 
             // Add planner tab to General channel
-            var plannerTab = new TeamsChannelTab
+            var plannerTab = new TeamsTab
             {
                 Name = "Pre-flight Checklist",
                 TeamsAppId = "com.microsoft.teamspace.tab.planner",
-                Configuration = new TeamsChannelTabConfiguration
+                Configuration = new TeamsTabConfiguration
                 {
                     EntityId = createdPlan.Id,
                     ContentUrl = $"https://tasks.office.com/{tenantName}/Home/PlannerFrame?page=7&planId={createdPlan.Id}&auth_pvr=Orgid&auth_upn={{upn}}&mkt={{locale}}",
@@ -295,14 +301,15 @@ namespace CreateFlightTeam.Provisioning
             await graphClient.AddTeamChannelTab(groupId, channelId, plannerTab);
         }
 
-        private static async Task<SharePointList> CreateChallengingPassengersListAsync(string groupId, string channelId)
+        private static async Task<List> CreateChallengingPassengersListAsync(string groupId, string channelId)
         {
             // Get the team site
             var teamSite = await graphClient.GetTeamSiteAsync(groupId);
 
-            var challengingPassengers = new SharePointList
+            var challengingPassengers = new List
             {
                 DisplayName = "Challenging Passengers",
+                /*
                 Columns = new List<ColumnDefinition>()
                 {
                     new ColumnDefinition
@@ -321,6 +328,7 @@ namespace CreateFlightTeam.Provisioning
                         Text = new TextColumn()
                     }
                 }
+                 */
             };
 
             // Create the list
@@ -354,34 +362,40 @@ namespace CreateFlightTeam.Provisioning
             var siteLists = await graphClient.GetSiteListsAsync(teamSite.Id);
 
             // Initialize page
-            var sharePointPage = new SharePointPage
+            var sharePointPage = new SitePage
             {
                 Name = "TeamPage.aspx",
-                Title = $"Flight {flightNumber}",
-                WebParts = new List<SharePointWebPart>()
+                Title = $"Flight {flightNumber}"
             };
 
-            foreach (var list in siteLists.Value)
+            var webParts = new List<WebPart>();
+
+            foreach (var list in siteLists.CurrentPage)
             {
                 bool isDocLibrary = list.DisplayName == "Documents";
 
-                var webPart = new SharePointWebPart
+                var webPart = new Microsoft.Graph.WebPart
                 {
                     Type = SharePointWebPart.ListWebPart,
-                    Data = new WebPartData
+                    Data = new SitePageData
                     {
-                        DataVersion = "1.0",
-                        Properties = new ListProperties
+                        AdditionalData = new Dictionary<string, object>
                         {
-                            IsDocumentLibrary = isDocLibrary,
-                            SelectedListId = list.Id,
-                            WebpartHeightKey = 1
+                            { "dataVersion", "1.0"},
+                            { "properties", new Dictionary<string, object>
+                                {
+                                    { "isDocumentLibrary", isDocLibrary },
+                                    { "selectedListId", list.Id }
+                                }
+                            }
                         }
                     }
                 };
 
-                sharePointPage.WebParts.Add(webPart);
+                webParts.Add(webPart);
             }
+
+            sharePointPage.WebParts = webParts;
 
             var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
 
@@ -391,13 +405,12 @@ namespace CreateFlightTeam.Provisioning
                 $"{teamSite.WebUrl}/{createdPage.WebUrl}";
 
             // Add the list as a team tab
-            var pageTab = new TeamsChannelTab
+            var pageTab = new TeamsTab
             {
                 Name = createdPage.Title,
                 TeamsAppId = "com.microsoft.teamspace.tab.web",
-                Configuration = new TeamsChannelTabConfiguration
+                Configuration = new TeamsTabConfiguration
                 {
-                    // TODO: This is a relative link, need to fully qualify
                     ContentUrl = pageUrl,
                     WebsiteUrl = pageUrl
                 }

@@ -88,7 +88,7 @@ namespace CreateFlightTeam
                     var graphClient = new GraphService(accessToken, log);
 
                     // Process changes
-                    var newDeltaLink = await ProcessDelta(graphClient, subscription.DeltaLink, log);
+                    var newDeltaLink = await ProcessDelta(graphClient, log, deltaLink: subscription.DeltaLink);
 
                     subscription.DeltaLink = newDeltaLink;
 
@@ -133,7 +133,7 @@ namespace CreateFlightTeam
                     subscription = await DatabaseHelper.CreateListSubscriptionAsync(new ListSubscription
                     {
                         ClientState = newSubscription.ClientState,
-                        Expiration = newSubscription.ExpirationDateTime,
+                        Expiration = newSubscription.ExpirationDateTime.GetValueOrDefault().UtcDateTime,
                         Resource = $"/drives/{drive.Id}/root",
                         SubscriptionId = newSubscription.Id
                     });
@@ -141,18 +141,23 @@ namespace CreateFlightTeam
                 else
                 {
                     subscription.ClientState = newSubscription.ClientState;
-                    subscription.Expiration = newSubscription.ExpirationDateTime;
+                    subscription.Expiration = newSubscription.ExpirationDateTime.GetValueOrDefault().UtcDateTime;
                     subscription.SubscriptionId = newSubscription.Id;
 
                     subscription = await DatabaseHelper.UpdateListSubscriptionAsync(subscription.Id, subscription);
                 }
             }
 
-            string deltaLink = await ProcessDelta(graphClient,
-                string.IsNullOrEmpty(subscription.DeltaLink) ?
-                    $"/drives/{drive.Id}/root/delta" :
-                    subscription.DeltaLink,
-                log);
+            string deltaLink = string.Empty;
+
+            if (string.IsNullOrEmpty(subscription.DeltaLink))
+            {
+                deltaLink = await ProcessDelta(graphClient, log, driveId: drive.Id);
+            }
+            else
+            {
+                deltaLink = await ProcessDelta(graphClient, log, deltaLink: subscription.DeltaLink);
+            }
 
             subscription.DeltaLink = deltaLink;
             await DatabaseHelper.UpdateListSubscriptionAsync(subscription.Id, subscription);
@@ -188,82 +193,88 @@ namespace CreateFlightTeam
             }
         }
 
-        private static async Task<string> ProcessDelta(GraphService graphClient, string deltaLink, ILogger log)
+        private static async Task<string> ProcessDelta(GraphService graphClient, ILogger log, string driveId = null, string deltaLink = null)
         {
             string deltaRequestUrl = deltaLink;
-            string newDeltaLink = null;
 
             TeamProvisioning.Initialize(graphClient, log);
 
-            while (newDeltaLink == null)
+            var delta = await graphClient.GetListDelta(driveId, deltaRequestUrl);
+
+            foreach(var item in delta.CurrentPage)
             {
-                var delta = await graphClient.GetListDelta(deltaRequestUrl);
+                await ProcessDriveItem(graphClient, item);
+            }
 
-                foreach(var item in delta.Value)
+            while(delta.NextPageRequest != null)
+            {
+                // There are more pages of results
+                delta = await delta.NextPageRequest.GetAsync();
+
+                foreach(var item in delta.CurrentPage)
                 {
-                    if (item.File != null)
-                    {
-                        // Query the database
-                        var teams = await DatabaseHelper.GetFlightTeamsAsync(f => f.SharePointListItemId.Equals(item.Id));
-                        var team = teams.FirstOrDefault();
-
-                        if (item.Deleted != null && team != null)
-                        {
-                            // Remove the team
-                            await TeamProvisioning.ArchiveTeamAsync(team.TeamId);
-
-                            // Remove the database item
-                            await DatabaseHelper.DeleteFlightTeamAsync(team.Id);
-
-                            continue;
-                        }
-
-                        // Get the file's list data
-                        var listItem = await graphClient.GetDriveItemListItem(item.ParentReference.DriveId, item.Id);
-                        if (listItem == null) continue;
-
-                        if (team == null)
-                        {
-                            team = FlightTeam.FromListItem(item.Id, listItem);
-                            if (team == null)
-                            {
-                                // Item was added to list but required metadata
-                                // isn't filled in yet. No-op.
-                                continue;
-                            }
-
-                            // New item, provision team
-                            team.TeamId = await TeamProvisioning.ProvisionTeamAsync(team);
-
-                            await DatabaseHelper.CreateFlightTeamAsync(team);
-                        }
-                        else
-                        {
-                            var updatedTeam = FlightTeam.FromListItem(item.Id, listItem);
-                            updatedTeam.TeamId = team.TeamId;
-
-                            await TeamProvisioning.UpdateTeamAsync(team, updatedTeam);
-                            // Existing item, process changes
-                            updatedTeam.Id = team.Id;
-                            await DatabaseHelper.UpdateFlightTeamAsync(team.Id, updatedTeam);
-
-                            // TODO: Check for changes to gate, time and queue notification
-                        }
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(delta.NextLink))
-                {
-                    // There are more pages of results
-                    deltaRequestUrl = delta.NextLink;
-                }
-                else
-                {
-                    newDeltaLink = delta.DeltaLink;
+                    await ProcessDriveItem(graphClient, item);
                 }
             }
 
-            return newDeltaLink;
+            // Get the delta link
+            object newDeltaLink;
+            delta.AdditionalData.TryGetValue("@odata.deltaLink", out newDeltaLink);
+
+            return newDeltaLink.ToString();
+        }
+
+        private static async Task ProcessDriveItem(GraphService graphClient, Microsoft.Graph.DriveItem item)
+        {
+            if (item.File != null)
+            {
+                // Query the database
+                var teams = await DatabaseHelper.GetFlightTeamsAsync(f => f.SharePointListItemId.Equals(item.Id));
+                var team = teams.FirstOrDefault();
+
+                if (item.Deleted != null && team != null)
+                {
+                    // Remove the team
+                    await TeamProvisioning.ArchiveTeamAsync(team.TeamId);
+
+                    // Remove the database item
+                    await DatabaseHelper.DeleteFlightTeamAsync(team.Id);
+
+                    return;
+                }
+
+                // Get the file's list data
+                var listItem = await graphClient.GetDriveItemListItem(item.ParentReference.DriveId, item.Id);
+                if (listItem == null) return;
+
+                if (team == null)
+                {
+                    team = FlightTeam.FromListItem(item.Id, listItem);
+                    if (team == null)
+                    {
+                        // Item was added to list but required metadata
+                        // isn't filled in yet. No-op.
+                        return;
+                    }
+
+                    // New item, provision team
+                    team.TeamId = await TeamProvisioning.ProvisionTeamAsync(team);
+
+                    await DatabaseHelper.CreateFlightTeamAsync(team);
+                }
+                else
+                {
+                    var updatedTeam = FlightTeam.FromListItem(item.Id, listItem);
+                    updatedTeam.TeamId = team.TeamId;
+
+                    await TeamProvisioning.UpdateTeamAsync(team, updatedTeam);
+                    // Existing item, process changes
+                    updatedTeam.Id = team.Id;
+                    await DatabaseHelper.UpdateFlightTeamAsync(team.Id, updatedTeam);
+
+                    // TODO: Check for changes to gate, time and queue notification
+                }
+            }
         }
     }
 }

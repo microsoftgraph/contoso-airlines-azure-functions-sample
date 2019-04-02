@@ -15,7 +15,7 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Group : GraphResource
+    public class Group1 : GraphResource
     {
         public const string SchemaExtensionName = "ext8giz9c7n_contosoFlightTeam";
 
@@ -44,37 +44,37 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Team
+    public class Team1
     {
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public TeamGuestSettings GuestSettings { get; set; }
+        public TeamGuestSettings1 GuestSettings { get; set; }
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public string WebUrl { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class TeamGuestSettings
+    public class TeamGuestSettings1
     {
         public bool AllowCreateUpdateChannels { get; set; }
         public bool AllowDeleteChannels { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class User : GraphResource
+    public class User1 : GraphResource
     {
         public string DisplayName { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Invitation
+    public class Invitation1
     {
         public string InvitedUserEmailAddress { get; set; }
         public string InviteRedirectUrl { get; set; }
         public bool SendInvitationMessage { get; set; }
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public User InvitedUser { get; set; }
+        public User1 InvitedUser { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
@@ -85,7 +85,7 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Channel : GraphResource
+    public class Channel1 : GraphResource
     {
         public string DisplayName { get; set; }
         public string Description { get; set; }
@@ -104,7 +104,7 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class TeamsApp
+    public class TeamsApp1
     {
         [JsonIgnore]
         public string AppId { get; set; }
@@ -119,7 +119,7 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Site : GraphResource
+    public class Site1 : GraphResource
     {
         public SiteCollection SiteCollection { get; set; }
         public string WebUrl { get; set; }
@@ -132,14 +132,14 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Drive : GraphResource
+    public class Drive1 : GraphResource
     {
         public string Name { get; set; }
         public string DriveType { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class DriveItem : GraphResource
+    public class DriveItem1 : GraphResource
     {
         public string ETag { get; set; }
         public ItemReference ParentReference { get; set; }
@@ -181,7 +181,7 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class PlannerTask : GraphResource
+    public class PlannerTask1 : GraphResource
     {
         public string Title { get; set; }
         public string PlanId { get; set; }
@@ -194,23 +194,23 @@ namespace CreateFlightTeam.Graph
     {
         public string DisplayName { get; set; }
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public List<ColumnDefinition> Columns { get; set; }
+        public List<ColumnDefinition1> Columns { get; set; }
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public string WebUrl { get; set; }
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class ColumnDefinition
+    public class ColumnDefinition1
     {
         public string Name { get; set; }
 
         [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public TextColumn Text { get; set; }
+        public TextColumn1 Text { get; set; }
 
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class TextColumn
+    public class TextColumn1
     {
         [JsonProperty(PropertyName = "@odata.type")]
         public string Type { get { return "microsoft.graph.textColumn"; } }
@@ -279,7 +279,7 @@ namespace CreateFlightTeam.Graph
     }
 
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
-    public class Subscription : GraphResource
+    public class Subscription1 : GraphResource
     {
         public string Resource { get; set; }
         public string ChangeType { get; set; }

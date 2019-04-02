@@ -6,6 +6,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.DocumentDB.Core" Version="2.2.2" />
     <PackageReference Include="Microsoft.Azure.WebJobs.Extensions.Storage" Version="3.0.3" />
+    <PackageReference Include="Microsoft.Graph.Auth" Version="0.1.0-preview" />
+    <PackageReference Include="Microsoft.Graph.Beta" Version="0.1.0-preview" />
     <PackageReference Include="Microsoft.Identity.Client" Version="2.7.1" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.24" />
   </ItemGroup>
