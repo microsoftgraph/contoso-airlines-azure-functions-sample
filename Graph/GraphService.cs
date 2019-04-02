@@ -145,10 +145,12 @@ namespace CreateFlightTeam.Graph
         {
             if (isOwner)
             {
-                await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/owners/{userId}/$ref");
+                await graphClient.Groups[teamId].Owners[userId].Reference.Request().DeleteAsync();
+                //await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/owners/{userId}/$ref");
             }
 
-            await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/members/{userId}/$ref");
+            await graphClient.Groups[teamId].Members[userId].Reference.Request().DeleteAsync();
+            //await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/members/{userId}/$ref");
         }
 
         public async Task<ITeamChannelsCollectionPage> GetTeamChannelsAsync(string teamId)
@@ -283,7 +285,8 @@ namespace CreateFlightTeam.Graph
 
         public async Task ArchiveTeamAsync(string teamId)
         {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/archive");
+            await graphClient.Teams[teamId].Archive().Request().PostAsync();
+            //var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/archive");
         }
 
         public async Task<GraphCollection<User>> GetGroupMembersAsync(string groupId)
