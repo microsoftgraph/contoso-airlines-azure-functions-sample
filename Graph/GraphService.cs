@@ -20,24 +20,12 @@ namespace CreateFlightTeam.Graph
     {
         private static readonly string graphEndpoint = "https://graph.microsoft.com/";
 
-        private readonly string accessToken = string.Empty;
-        private HttpClient httpClient = null;
-        private readonly JsonSerializerSettings jsonSettings =
-            new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver() };
-
         private GraphServiceClient graphClient = null;
 
         private ILogger logger = null;
 
         public GraphService(string accessToken, ILogger log = null)
         {
-            this.accessToken = accessToken;
-            httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
-            httpClient.DefaultRequestHeaders.Accept.Add(
-                new MediaTypeWithQualityHeaderValue("application/json"));
-
             var clientCredential = new ClientCredential(Environment.GetEnvironmentVariable("AppSecret"));
             var authClient = ClientCredentialProvider.CreateClientApplication(
                 Environment.GetEnvironmentVariable("AppId"), clientCredential, null,
@@ -80,18 +68,12 @@ namespace CreateFlightTeam.Graph
                 logger.LogError($"Graph exception: {ex.Message}");
                 return null;
             }
-
-            //var response = await MakeGraphCall(HttpMethod.Get, $"/users/{upn}");
-            //return JsonConvert.DeserializeObject<User>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task<User> GetUserByEmail(string email)
         {
             var results = await graphClient.Users.Request().Filter($"mail eq '{email}'").GetAsync();
             return results.CurrentPage[0];
-            //var response = await MakeGraphCall(HttpMethod.Get, $"/users?$filter=mail eq '{email}'");
-            //var collection = JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
-            //return collection.Value[0];
         }
 
         public async Task<Group> CreateGroupAsync(Group group)
@@ -99,15 +81,9 @@ namespace CreateFlightTeam.Graph
             return await graphClient.Groups.Request().AddAsync(group);
         }
 
-        public async Task AddOpenExtensionToGroupAsync(string groupId, ProvisioningExtension extension)
-        {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/groups/{groupId}/extensions", extension);
-        }
-
         public async Task CreateTeamAsync(string groupId, Team team)
         {
             var response = await graphClient.Groups[groupId].Team.Request().PutAsync(team);
-            //var response = await MakeGraphCall(HttpMethod.Put, $"/groups/{groupId}/team", team, retries:3);
         }
 
         public async Task<Invitation> CreateGuestInvitationAsync(Invitation invite)
@@ -146,56 +122,29 @@ namespace CreateFlightTeam.Graph
             if (isOwner)
             {
                 await graphClient.Groups[teamId].Owners[userId].Reference.Request().DeleteAsync();
-                //await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/owners/{userId}/$ref");
             }
 
             await graphClient.Groups[teamId].Members[userId].Reference.Request().DeleteAsync();
-            //await MakeGraphCall(HttpMethod.Delete, $"/groups/{teamId}/members/{userId}/$ref");
         }
 
         public async Task<ITeamChannelsCollectionPage> GetTeamChannelsAsync(string teamId)
         {
             return await graphClient.Teams[teamId].Channels.Request().GetAsync();
-            //var response = await MakeGraphCall(HttpMethod.Get, $"/teams/{teamId}/channels");
-            //return JsonConvert.DeserializeObject<GraphCollection<Channel>>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task CreateChatMessageAsync(string teamId, string channelId, ChatMessage message)
-        {
-            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/messages", message);
         }
 
         public async Task<Channel> CreateTeamChannelAsync(string teamId, Channel channel)
         {
             return await graphClient.Teams[teamId].Channels.Request().AddAsync(channel);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels", channel);
-            //return JsonConvert.DeserializeObject<Channel>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task AddAppToTeam(string teamId, TeamsAppInstallation app)
         {
             var response = await graphClient.Teams[teamId].InstalledApps.Request().AddAsync(app);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/installedApps", app);
         }
 
         public async Task<Site> GetSharePointSiteAsync(string sitePath)
         {
             return await graphClient.Sites[sitePath].Request().GetAsync();
-        }
-
-        public async Task<SharePointList> GetSharePointListAsync(string siteId, string listName)
-        {
-            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/lists?$top=50");
-            var lists = JsonConvert.DeserializeObject<GraphCollection<SharePointList>>(await response.Content.ReadAsStringAsync());
-            foreach(var list in lists.Value)
-            {
-                if (list.DisplayName == listName)
-                {
-                    return list;
-                }
-            }
-
-            return null;
         }
 
         public async Task<Drive> GetSiteDriveAsync(string siteId, string driveName)
@@ -214,128 +163,54 @@ namespace CreateFlightTeam.Graph
             return null;
         }
 
-        public async Task<DriveItem> GetOneDriveItemAsync(string siteId, string itemPath)
-        {
-            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/drive/{itemPath}");
-            return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task<DriveItem> GetTeamOneDriveFolderAsync(string teamId, string folderName)
-        {
-            // Retry this call twice if it fails
-            // There seems to be a delay between creating a Team and the drives being
-            // fully created/enabled
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 3);
-            return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
-        }
-
-/*
-        public async Task CopySharePointFileAsync(string siteId, string itemId, ItemReference target)
-        {
-            var copyPayload = new DriveItem
-            {
-                ParentReference = target
-            };
-
-            var response = await MakeGraphCall(HttpMethod.Post,
-                $"/sites/{siteId}/drive/items/{itemId}/copy",
-                copyPayload);
-        }
-*/
         public async Task<PlannerPlan> CreatePlanAsync(PlannerPlan plan)
         {
             return await graphClient.Planner.Plans.Request().AddAsync(plan);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/planner/plans", plan, retries: 3);
-            //return JsonConvert.DeserializeObject<Plan>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task<PlannerBucket> CreateBucketAsync(PlannerBucket bucket)
         {
             return await graphClient.Planner.Buckets.Request().AddAsync(bucket);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/planner/buckets", bucket);
-            //return JsonConvert.DeserializeObject<Bucket>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task<PlannerTask> CreatePlannerTaskAsync(PlannerTask task)
         {
             return await graphClient.Planner.Tasks.Request().AddAsync(task);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/planner/tasks", task);
-            //return JsonConvert.DeserializeObject<PlannerTask>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task<Site> GetTeamSiteAsync(string teamId)
         {
             return await graphClient.Groups[teamId].Sites["root"].Request().GetAsync();
-            //var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/sites/root");
-            //return JsonConvert.DeserializeObject<Site>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task<List> CreateSharePointListAsync(string siteId, List list)
         {
             return await graphClient.Sites[siteId].Lists.Request().AddAsync(list);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/lists", list);
-            //return JsonConvert.DeserializeObject<SharePointList>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task<GraphCollection<Group>> FindGroupsBySharePointItemIdAsync(int itemId)
-        {
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups?$filter={""/*Group.SchemaExtensionName*/}/sharePointItemId  eq {itemId}");
-            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task ArchiveTeamAsync(string teamId)
         {
             await graphClient.Teams[teamId].Archive().Request().PostAsync();
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/archive");
-        }
-
-        public async Task<GraphCollection<User>> GetGroupMembersAsync(string groupId)
-        {
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{groupId}/members");
-            return JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task SendNotification(Notification notification)
-        {
-            var response = await MakeGraphCall(HttpMethod.Post, "/me/notifications", notification);
         }
 
         public async Task AddTeamChannelTab(string teamId, string channelId, TeamsTab tab)
         {
             await graphClient.Teams[teamId].Channels[channelId].Tabs.Request().AddAsync(tab);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/tabs", tab);
         }
 
         public async Task<ISiteListsCollectionPage> GetSiteListsAsync(string siteId)
         {
             return await graphClient.Sites[siteId].Lists.Request().GetAsync();
-            //var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/lists");
-            //return JsonConvert.DeserializeObject<GraphCollection<SharePointList>>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task<SitePage> CreateSharePointPageAsync(string siteId, SitePage page)
         {
             return await graphClient.Sites[siteId].Pages.Request().AddAsync(page);
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/pages", page);
-            //return JsonConvert.DeserializeObject<SharePointPage>(await response.Content.ReadAsStringAsync());
         }
 
         public async Task PublishSharePointPageAsync(string siteId, string pageId)
         {
             await graphClient.Sites[siteId].Pages[pageId].Publish().Request().PostAsync();
-            //var response = await MakeGraphCall(HttpMethod.Post, $"/sites/{siteId}/pages/{pageId}/publish");
-        }
-
-        public async Task<GraphCollection<Group>> GetAllGroupsAsync(string filter = null)
-        {
-            string query = string.IsNullOrEmpty(filter) ? string.Empty : $"?$filter={filter}";
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups{query}");
-            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task DeleteGroupAsync(string groupId)
-        {
-            var response = await MakeGraphCall(HttpMethod.Delete, $"/groups/{groupId}");
         }
 
         public async Task<Subscription> CreateListSubscription(string listUrl, string notificationUrl)
@@ -355,13 +230,10 @@ namespace CreateFlightTeam.Graph
         public async Task RemoveAllSubscriptions()
         {
             var subscriptions = await graphClient.Subscriptions.Request().GetAsync();
-            //var response = await MakeGraphCall(HttpMethod.Get, "/subscriptions");
-            //var subscriptions = JsonConvert.DeserializeObject<GraphCollection<Subscription>>(await response.Content.ReadAsStringAsync());
 
             foreach (var subscription in subscriptions.CurrentPage)
             {
                 await graphClient.Subscriptions[subscription.Id].Request().DeleteAsync();
-                //await MakeGraphCall(HttpMethod.Delete, $"/subscriptions/{subscription.Id}");
             }
         }
 
@@ -393,8 +265,7 @@ namespace CreateFlightTeam.Graph
         {
             try
             {
-                var response = await MakeGraphCall(HttpMethod.Get, $"/drives/{driveId}/items/{itemId}/listItem");
-                return JsonConvert.DeserializeObject<ListItem> (await response.Content.ReadAsStringAsync());
+                return await graphClient.Drives[driveId].Items[itemId].ListItem.Request().GetAsync();
             }
             catch (Exception)
             {
@@ -402,6 +273,89 @@ namespace CreateFlightTeam.Graph
                 // fails with a NotFound error
                 return null;
             }
+        }
+
+        #region Unused code
+/*
+        public async Task CreateChatMessageAsync(string teamId, string channelId, ChatMessage message)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/teams/{teamId}/channels/{channelId}/messages", message);
+        }
+
+        public async Task<DriveItem> GetOneDriveItemAsync(string siteId, string itemPath)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/drive/{itemPath}");
+            return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task<DriveItem> GetTeamOneDriveFolderAsync(string teamId, string folderName)
+        {
+            // Retry this call twice if it fails
+            // There seems to be a delay between creating a Team and the drives being
+            // fully created/enabled
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{teamId}/drive/root:/{folderName}", retries: 3);
+            return JsonConvert.DeserializeObject<DriveItem>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task CopySharePointFileAsync(string siteId, string itemId, ItemReference target)
+        {
+            var copyPayload = new DriveItem
+            {
+                ParentReference = target
+            };
+
+            var response = await MakeGraphCall(HttpMethod.Post,
+                $"/sites/{siteId}/drive/items/{itemId}/copy",
+                copyPayload);
+        }
+
+        public async Task AddOpenExtensionToGroupAsync(string groupId, ProvisioningExtension extension)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, $"/groups/{groupId}/extensions", extension);
+        }
+
+        public async Task<SharePointList> GetSharePointListAsync(string siteId, string listName)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/sites/{siteId}/lists?$top=50");
+            var lists = JsonConvert.DeserializeObject<GraphCollection<SharePointList>>(await response.Content.ReadAsStringAsync());
+            foreach(var list in lists.Value)
+            {
+                if (list.DisplayName == listName)
+                {
+                    return list;
+                }
+            }
+
+            return null;
+        }
+
+        public async Task<GraphCollection<Group>> FindGroupsBySharePointItemIdAsync(int itemId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups?$filter={Group.SchemaExtensionName}/sharePointItemId  eq {itemId}");
+            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task<GraphCollection<User>> GetGroupMembersAsync(string groupId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{groupId}/members");
+            return JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task SendNotification(Notification notification)
+        {
+            var response = await MakeGraphCall(HttpMethod.Post, "/me/notifications", notification);
+        }
+
+        public async Task<GraphCollection<Group>> GetAllGroupsAsync(string filter = null)
+        {
+            string query = string.IsNullOrEmpty(filter) ? string.Empty : $"?$filter={filter}";
+            var response = await MakeGraphCall(HttpMethod.Get, $"/groups{query}");
+            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
+        }
+
+        public async Task DeleteGroupAsync(string groupId)
+        {
+            var response = await MakeGraphCall(HttpMethod.Delete, $"/groups/{groupId}");
         }
 
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
@@ -466,5 +420,7 @@ namespace CreateFlightTeam.Graph
 
             return null;
         }
+        */
+        #endregion
     }
 }

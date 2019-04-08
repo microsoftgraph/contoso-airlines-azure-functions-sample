@@ -92,7 +92,8 @@ namespace CreateFlightTeam.Provisioning
             }
 
             // Swap out catering liaison if needed
-            if (!updatedTeam.CateringLiaison.Equals(originalTeam.CateringLiaison))
+            if (updatedTeam.CateringLiaison != null &&
+                !updatedTeam.CateringLiaison.Equals(originalTeam.CateringLiaison))
             {
                 var oldCateringLiaison = await graphClient.GetUserByEmail(originalTeam.CateringLiaison);
                 await graphClient.RemoveMemberAsync(originalTeam.TeamId, oldCateringLiaison.Id);
@@ -234,123 +235,67 @@ namespace CreateFlightTeam.Provisioning
             return generalChannel;
         }
 
-        private static async Task CreatePreflightPlanAsync(string groupId, string channelId, DateTimeOffset departureTime)
-        {
-            // Create a "Pre-flight checklist" plan
-            var preFlightCheckList = new PlannerPlan
-            {
-                Title = "Pre-flight Checklist",
-                Owner = groupId
-            };
-
-            var createdPlan = await graphClient.CreatePlanAsync(preFlightCheckList);
-            logger.LogInformation("Create plan");
-
-            // Create buckets
-            var toDoBucket = new PlannerBucket
-            {
-                Name = "To Do",
-                PlanId = createdPlan.Id
-            };
-
-            var createdToDoBucket = await graphClient.CreateBucketAsync(toDoBucket);
-
-            var completedBucket = new PlannerBucket
-            {
-                Name = "Completed",
-                PlanId = createdPlan.Id
-            };
-
-            var createdCompletedBucket = await graphClient.CreateBucketAsync(completedBucket);
-
-            // Create tasks in to-do bucket
-            var preFlightInspection = new PlannerTask
-            {
-                Title = "Perform pre-flight inspection of aircraft",
-                PlanId = createdPlan.Id,
-                BucketId = createdToDoBucket.Id,
-                DueDateTime = departureTime.ToUniversalTime()
-            };
-
-            await graphClient.CreatePlannerTaskAsync(preFlightInspection);
-
-            var ensureFoodBevStock = new PlannerTask
-            {
-                Title = "Ensure food and beverages are fully stocked",
-                PlanId = createdPlan.Id,
-                BucketId = createdToDoBucket.Id,
-                DueDateTime = departureTime.ToUniversalTime()
-            };
-
-            await graphClient.CreatePlannerTaskAsync(ensureFoodBevStock);
-
-            // Add planner tab to General channel
-            var plannerTab = new TeamsTab
-            {
-                Name = "Pre-flight Checklist",
-                TeamsAppId = "com.microsoft.teamspace.tab.planner",
-                Configuration = new TeamsTabConfiguration
-                {
-                    EntityId = createdPlan.Id,
-                    ContentUrl = $"https://tasks.office.com/{tenantName}/Home/PlannerFrame?page=7&planId={createdPlan.Id}&auth_pvr=Orgid&auth_upn={{upn}}&mkt={{locale}}",
-                    RemoveUrl = $"https://tasks.office.com/{tenantName}/Home/PlannerFrame?page=13&planId={createdPlan.Id}&auth_pvr=Orgid&auth_upn={{upn}}&mkt={{locale}}",
-                    WebsiteUrl = $"https://tasks.office.com/{tenantName}/Home/PlanViews/{createdPlan.Id}"
-                }
-            };
-
-            await graphClient.AddTeamChannelTab(groupId, channelId, plannerTab);
-        }
-
         private static async Task<List> CreateChallengingPassengersListAsync(string groupId, string channelId)
         {
-            // Get the team site
-            var teamSite = await graphClient.GetTeamSiteAsync(groupId);
+            int retries = 3;
 
-            var challengingPassengers = new List
+            while (retries > 0)
             {
-                DisplayName = "Challenging Passengers",
-                /*
-                Columns = new List<ColumnDefinition>()
+                try
                 {
-                    new ColumnDefinition
+                    // Get the team site
+                    var teamSite = await graphClient.GetTeamSiteAsync(groupId);
+
+                    var challengingPassengers = new List
                     {
-                        Name = "Name",
-                        Text = new TextColumn()
-                    },
-                    new ColumnDefinition
+                        DisplayName = "Challenging Passengers",
+                        Columns = new ListColumnsCollectionPage {
+                            new ColumnDefinition
+                            {
+                                Name = "Name",
+                                Text = new TextColumn()
+                            },
+                            new ColumnDefinition
+                            {
+                                Name = "SeatNumber",
+                                Text = new TextColumn()
+                            },
+                            new ColumnDefinition
+                            {
+                                Name = "Notes",
+                                Text = new TextColumn()
+                            }
+                        }
+                    };
+
+                    // Create the list
+                    var createdList = await graphClient.CreateSharePointListAsync(teamSite.Id, challengingPassengers);
+
+                    // Add the list as a team tab
+                    /*
+                    var listTab = new TeamsChannelTab
                     {
-                        Name = "SeatNumber",
-                        Text = new TextColumn()
-                    },
-                    new ColumnDefinition
-                    {
-                        Name = "Notes",
-                        Text = new TextColumn()
-                    }
+                        Name = "Challenging Passengers",
+                        TeamsAppId = "com.microsoft.teamspace.tab.web",
+                        Configuration = new TeamsChannelTabConfiguration
+                        {
+                            ContentUrl = createdList.WebUrl,
+                            WebsiteUrl = createdList.WebUrl
+                        }
+                    };
+
+                    await graphClient.AddTeamChannelTab(groupId, channelId, listTab);
+                    */
+
+                    return createdList;
                 }
-                 */
-            };
-
-            // Create the list
-            var createdList = await graphClient.CreateSharePointListAsync(teamSite.Id, challengingPassengers);
-
-            // Add the list as a team tab
-            /*
-            var listTab = new TeamsChannelTab
-            {
-                Name = "Challenging Passengers",
-                TeamsAppId = "com.microsoft.teamspace.tab.web",
-                Configuration = new TeamsChannelTabConfiguration
+                catch (ServiceException ex)
                 {
-                    ContentUrl = createdList.WebUrl,
-                    WebsiteUrl = createdList.WebUrl
+                    retries--;
                 }
-            };
+            }
 
-            await graphClient.AddTeamChannelTab(groupId, channelId, listTab);
-             */
-
-            return createdList;
+            return null;
         }
 
         private static async Task CreateSharePointPageAsync(string groupId, string channelId, float flightNumber)

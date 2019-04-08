@@ -1,4 +1,5 @@
 ﻿using CreateFlightTeam.Graph;
+using Microsoft.Graph;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using System;
@@ -34,10 +35,13 @@ namespace CreateFlightTeam.Models
         public FlightTeam() { }
         public static FlightTeam FromListItem(string itemId, ListItem listItem)
         {
-            if (string.IsNullOrEmpty(listItem.Fields.Description) ||
-                string.IsNullOrEmpty(listItem.Fields.DepartureGate) ||
-                listItem.Fields.FlightNumber <= 0 ||
-                listItem.Fields.DepartureTime == DateTime.MinValue)
+            var jsonFields = JsonConvert.SerializeObject(listItem.Fields.AdditionalData);
+            var fields = JsonConvert.DeserializeObject<ListFields>(jsonFields);
+
+            if (string.IsNullOrEmpty(fields.Description) ||
+                string.IsNullOrEmpty(fields.DepartureGate) ||
+                fields.FlightNumber <= 0 ||
+                fields.DepartureTime == DateTime.MinValue)
             {
                 return null;
             }
@@ -45,23 +49,27 @@ namespace CreateFlightTeam.Models
             var team = new FlightTeam();
 
             team.SharePointListItemId = itemId;
-            team.Description = listItem.Fields.Description;
-            team.FlightNumber = (int)listItem.Fields.FlightNumber;
-            team.DepartureGate = listItem.Fields.DepartureGate;
-            team.DepartureTime = listItem.Fields.DepartureTime;
+            team.Description = fields.Description;
+            team.FlightNumber = (int)fields.FlightNumber;
+            team.DepartureGate = fields.DepartureGate;
+            team.DepartureTime = fields.DepartureTime;
             team.Admin = listItem.CreatedBy.User.Id;
-            team.CateringLiaison = listItem.Fields.CateringLiaison;
+            team.CateringLiaison = fields.CateringLiaison;
 
             team.Pilots = new List<string>();
-            foreach (var value in listItem.Fields.Pilots)
-            {
-                team.Pilots.Add(value.Email);
+            if (fields.Pilots != null) {
+                foreach (var value in fields.Pilots)
+                {
+                    team.Pilots.Add(value.Email);
+                }
             }
 
             team.FlightAttendants = new List<string>();
-            foreach (var value in listItem.Fields.FlightAttendants)
-            {
-                team.FlightAttendants.Add(value.Email);
+            if (fields.FlightAttendants != null) {
+                foreach (var value in fields.FlightAttendants)
+                {
+                    team.FlightAttendants.Add(value.Email);
+                }
             }
 
             return team;

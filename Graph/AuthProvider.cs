@@ -49,9 +49,9 @@ namespace CreateFlightTeam.Graph
         {
             logger = log;
             var confidentialClient = new ConfidentialClientApplication(appId, authority, redirectUri, clientCreds, null, null);
-            Logger.LogCallback = AuthLog;
-            Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
-            Logger.PiiLoggingEnabled = true;
+            //Logger.LogCallback = AuthLog;
+            //Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
+            //Logger.PiiLoggingEnabled = true;
 
             var result = await confidentialClient.AcquireTokenForClientAsync(scopes);
             return result.AccessToken;
