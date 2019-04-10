@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.Graph.Beta" Version="0.1.0-preview" />
     <PackageReference Include="Microsoft.Identity.Client" Version="2.7.1" />
     <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.24" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="5.4.0" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">

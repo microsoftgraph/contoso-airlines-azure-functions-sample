@@ -38,7 +38,7 @@ namespace CreateFlightTeam.Graph
             logger = log;
         }
 
-        public async Task<List<string>> GetUserIds(List<string> pilots, List<string> flightAttendants)
+        public async Task<List<string>> GetUserIds(List<string> pilots, List<string> flightAttendants, bool fullyQualified = false)
         {
             var userIds = new List<string>();
 
@@ -46,13 +46,13 @@ namespace CreateFlightTeam.Graph
             foreach(var pilot in pilots)
             {
                 var user = await GetUserByUpn(pilot);
-                userIds.Add($"{graphEndpoint}beta/users/{user.Id}");
+                userIds.Add(fullyQualified ? $"{graphEndpoint}beta/users/{user.Id}" : user.Id);
             }
 
             foreach(var flightAttendant in flightAttendants)
             {
                 var user = await GetUserByUpn(flightAttendant);
-                userIds.Add($"{graphEndpoint}beta/users/{user.Id}");
+                userIds.Add(fullyQualified ? $"{graphEndpoint}beta/users/{user.Id}" : user.Id);
             }
 
             return userIds;
@@ -272,6 +272,60 @@ namespace CreateFlightTeam.Graph
                 // When document is first created and no fields are filled in, this call
                 // fails with a NotFound error
                 return null;
+            }
+        }
+
+        public async Task SendUserNotification(string userId, string title, string message)
+        {
+            // Check for a user token for this user ID
+            // If we do not have one, it may be because the user has not
+            // ever used the mobile app. In this case, do nothing
+            var token = await AuthProvider.GetUserToken(userId);
+            if (string.IsNullOrEmpty(token)) {
+                return;
+            }
+
+            var notifGraphClient = new GraphServiceClient(
+                new DelegateAuthenticationProvider(
+                    async(requestMessage) => {
+                        var userToken = await AuthProvider.GetUserToken(userId);
+                        requestMessage.Headers.Authorization =
+                            new AuthenticationHeaderValue("Bearer", userToken);
+                    }
+                )
+            );
+
+            var notification = new Notification
+            {
+                TargetHostName = Environment.GetEnvironmentVariable("NotificationHostName"),
+                ExpirationDateTime = DateTimeOffset.UtcNow.AddHours(2),
+                DisplayTimeToLive = 30,
+                Priority = Priority.High,
+                GroupName = "FlightChanges",
+                TargetPolicy = new TargetPolicyEndpoints
+                {
+                    PlatformTypes = new string[] { "ios" }
+                },
+                Payload = new PayloadTypes
+                {
+                    VisualContent = new VisualProperties
+                    {
+                        Title = title,
+                        Body = message
+                    }
+                },
+                AdditionalData = new Dictionary<string, object>()
+            };
+
+            notification.AdditionalData.Add("appNotificationId", Guid.NewGuid().ToString());
+
+            try
+            {
+                await notifGraphClient.Me.Notifications.Request().AddAsync(notification);
+            }
+            catch (ServiceException ex)
+            {
+                logger.LogWarning($"Error sending notification to {userId}: {ex.Message}");
             }
         }
 

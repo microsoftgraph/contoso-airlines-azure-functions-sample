@@ -6,6 +6,9 @@
   "azureFunctions.preDeployTask": "publish",
   "debug.internalConsoleOptions": "neverOpen",
   "cSpell.words": [
-    "opencode"
+    "async",
+    "document",
+    "opencode",
+    "upsert"
   ]
 }

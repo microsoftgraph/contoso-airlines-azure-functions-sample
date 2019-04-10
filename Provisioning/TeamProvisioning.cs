@@ -110,7 +110,7 @@ namespace CreateFlightTeam.Provisioning
         private static async Task<Group> CreateUnifiedGroupAsync(FlightTeam flightTeam)
         {
             // Initialize members list with pilots and flight attendants
-            var members = await graphClient.GetUserIds(flightTeam.Pilots, flightTeam.FlightAttendants);
+            var members = await graphClient.GetUserIds(flightTeam.Pilots, flightTeam.FlightAttendants, true);
 
             // Add admin and me as members
             members.Add($"https://graph.microsoft.com/beta/users/{flightTeam.Admin}");

@@ -273,6 +273,29 @@ namespace CreateFlightTeam
                     await DatabaseHelper.UpdateFlightTeamAsync(team.Id, updatedTeam);
 
                     // TODO: Check for changes to gate, time and queue notification
+                    string notificationText = string.Empty;
+
+                    if (updatedTeam.DepartureGate != team.DepartureGate)
+                    {
+                        notificationText = $"New Departure Gate: {updatedTeam.DepartureGate}";
+                    }
+
+                    if (updatedTeam.DepartureTime != team.DepartureTime)
+                    {
+                        var localTime = updatedTeam.DepartureTime.ToLocalTime().ToString("g");
+                        notificationText = $"{(string.IsNullOrEmpty(notificationText) ? "" : notificationText + "\n")}New Departure Time: {localTime}";
+                    }
+
+                    if (!string.IsNullOrEmpty(notificationText))
+                    {
+                        // Get the team user ids
+                        var userIds = await graphClient.GetUserIds(updatedTeam.Pilots, updatedTeam.FlightAttendants);
+
+                        foreach(var userId in userIds)
+                        {
+                            await graphClient.SendUserNotification(userId, "Flight Update", notificationText);
+                        }
+                    }
                 }
             }
         }

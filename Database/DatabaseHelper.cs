@@ -93,6 +93,7 @@ namespace CreateFlightTeam.DocumentDB
                 }
             }
         }
+
         #endregion
 
         #region FlightTeam operations
@@ -126,6 +127,7 @@ namespace CreateFlightTeam.DocumentDB
         {
             await DeleteItemAsync(id, flightCollection);
         }
+
         #endregion
 
         #region ListSubscription operations
@@ -166,6 +168,7 @@ namespace CreateFlightTeam.DocumentDB
         {
             await DeleteItemAsync(id, subscriptionCollection);
         }
+
         #endregion
 
         #region Generic operations

@@ -21,7 +21,7 @@ namespace CreateFlightTeam.Models
 
         public bool IsExpired()
         {
-            return Expiration <= DateTime.Now;
+            return Expiration <= DateTime.UtcNow;
         }
     }
 }
