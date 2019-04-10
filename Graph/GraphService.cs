@@ -24,7 +24,7 @@ namespace CreateFlightTeam.Graph
 
         private ILogger logger = null;
 
-        public GraphService(string accessToken, ILogger log = null)
+        public GraphService(ILogger log)
         {
             var clientCredential = new ClientCredential(Environment.GetEnvironmentVariable("AppSecret"));
             var authClient = ClientCredentialProvider.CreateClientApplication(

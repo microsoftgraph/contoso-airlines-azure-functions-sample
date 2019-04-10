@@ -291,6 +291,7 @@ namespace CreateFlightTeam.Provisioning
                 }
                 catch (ServiceException ex)
                 {
+                    logger.LogWarning($"CreateChallengingPassengersListAsync error: {ex.Message}");
                     retries--;
                 }
             }

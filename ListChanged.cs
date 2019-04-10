@@ -67,6 +67,7 @@ namespace CreateFlightTeam
             log.LogInformation($"Received queue item: {JsonConvert.SerializeObject(request)}");
 
             DatabaseHelper.Initialize();
+            AuthProvider.AzureLogger = log;
 
             // Validate the notification against the subscription
             var subscriptions = await DatabaseHelper.GetListSubscriptionsAsync(
@@ -84,8 +85,7 @@ namespace CreateFlightTeam
                 // Verify client state. If no match, no-op
                 if (request.Changes[0].ClientState == subscription.ClientState)
                 {
-                    var accessToken = await AuthProvider.GetAppOnlyToken(log);
-                    var graphClient = new GraphService(accessToken, log);
+                    var graphClient = new GraphService(log);
 
                     // Process changes
                     var newDeltaLink = await ProcessDelta(graphClient, log, deltaLink: subscription.DeltaLink);
@@ -107,8 +107,7 @@ namespace CreateFlightTeam
             [Queue("syncqueue")] ICollector<ListChangedRequest> outputQueueMessage,
             ILogger log)
         {
-            var accessToken = await AuthProvider.GetAppOnlyToken(log);
-            var graphClient = new GraphService(accessToken, log);
+            var graphClient = new GraphService(log);
 
             DatabaseHelper.Initialize();
 
@@ -172,8 +171,7 @@ namespace CreateFlightTeam
         {
             DatabaseHelper.Initialize();
 
-            var accessToken = await AuthProvider.GetAppOnlyToken(log);
-            var graphClient = new GraphService(accessToken, log);
+            var graphClient = new GraphService(log);
 
             await graphClient.RemoveAllSubscriptions();
 
@@ -293,7 +291,7 @@ namespace CreateFlightTeam
 
                         foreach(var userId in userIds)
                         {
-                            await graphClient.SendUserNotification(userId, "Flight Update", notificationText);
+                            await graphClient.SendUserNotification(userId, $"Flight {updatedTeam.FlightNumber} Update", notificationText);
                         }
                     }
                 }

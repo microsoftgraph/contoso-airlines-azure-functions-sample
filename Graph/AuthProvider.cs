@@ -30,6 +30,12 @@ namespace CreateFlightTeam.Graph
 
         private static ILogger logger;
 
+        public static ILogger AzureLogger
+        {
+            get { return logger; }
+            set { logger = value; }
+        }
+
         public static async Task GetTokenOnBehalfOfAsync(string authHeader, ILogger log)
         {
             logger = log;
@@ -86,22 +92,10 @@ namespace CreateFlightTeam.Graph
                 var result = await confidentialClient.AcquireTokenSilentAsync(notifScopes, account);
                 return result.AccessToken;
             }
-            catch (MsalException ex)
+            catch (MsalException)
             {
                 return string.Empty;
             }
-        }
-
-        public static async Task<string> GetAppOnlyToken(ILogger log)
-        {
-            logger = log;
-            var confidentialClient = new ConfidentialClientApplication(appId, authority, redirectUri, clientCreds, null, null);
-            //Logger.LogCallback = AuthLog;
-            //Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
-            //Logger.PiiLoggingEnabled = true;
-
-            var result = await confidentialClient.AcquireTokenForClientAsync(scopes);
-            return result.AccessToken;
         }
 
         private static void AuthLog(Microsoft.Identity.Client.LogLevel level, string message, bool containsPII)
