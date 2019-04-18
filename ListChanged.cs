@@ -60,6 +60,7 @@ namespace CreateFlightTeam
         // queue by the ListChange function.
         // It does the processing of the notification
         [FunctionName("SyncList")]
+        [Singleton]
         public static async Task SyncList(
             [QueueTrigger("syncqueue")] ListChangedRequest request,
             ILogger log)
@@ -90,10 +91,13 @@ namespace CreateFlightTeam
                     // Process changes
                     var newDeltaLink = await ProcessDelta(graphClient, log, deltaLink: subscription.DeltaLink);
 
-                    subscription.DeltaLink = newDeltaLink;
+                    if (!string.IsNullOrEmpty(newDeltaLink))
+                    {
+                        subscription.DeltaLink = newDeltaLink;
 
-                    // Update the subscription in the database with new delta link
-                    await DatabaseHelper.UpdateListSubscriptionAsync(subscription.Id, subscription);
+                        // Update the subscription in the database with new delta link
+                        await DatabaseHelper.UpdateListSubscriptionAsync(subscription.Id, subscription);
+                    }
                 }
             }
         }
@@ -183,6 +187,35 @@ namespace CreateFlightTeam
 
             if (!string.IsNullOrEmpty(req.Query["deleteTeams"]))
             {
+                var flightGroups = await graphClient.GetAllGroupsAsync("startswith(displayName, 'Flight ')");
+
+                foreach(var group in flightGroups.CurrentPage)
+                {
+                    if (group.DisplayName.CompareTo(flightAdminSite) == 0)
+                    {
+                        log.LogInformation($"Skipping flight admin team");
+                        continue;
+                    }
+
+                    try
+                    {
+                        await graphClient.DeleteTeamAsync(group.Id);
+                    }
+                    catch (Microsoft.Graph.ServiceException ex)
+                    {
+                        log.LogWarning($"Error deleting team ${group.Id}: {ex.Message}");
+                    }
+
+                    try
+                    {
+                        await graphClient.DeleteGroupAsync(group.Id);
+                    }
+                    catch (Microsoft.Graph.ServiceException ex)
+                    {
+                        log.LogWarning($"Error deleting group ${group.Id}: {ex.Message}");
+                    }
+                }
+
                 var teams = await DatabaseHelper.GetFlightTeamsAsync();
                 foreach (var team in teams)
                 {
@@ -233,7 +266,7 @@ namespace CreateFlightTeam
                 if (item.Deleted != null && team != null)
                 {
                     // Remove the team
-                    await TeamProvisioning.ArchiveTeamAsync(team.TeamId);
+                    await TeamProvisioning.ArchiveTeamAsync(team);
 
                     // Remove the database item
                     await DatabaseHelper.DeleteFlightTeamAsync(team.Id);
@@ -269,31 +302,6 @@ namespace CreateFlightTeam
                     // Existing item, process changes
                     updatedTeam.Id = team.Id;
                     await DatabaseHelper.UpdateFlightTeamAsync(team.Id, updatedTeam);
-
-                    // TODO: Check for changes to gate, time and queue notification
-                    string notificationText = string.Empty;
-
-                    if (updatedTeam.DepartureGate != team.DepartureGate)
-                    {
-                        notificationText = $"New Departure Gate: {updatedTeam.DepartureGate}";
-                    }
-
-                    if (updatedTeam.DepartureTime != team.DepartureTime)
-                    {
-                        var localTime = updatedTeam.DepartureTime.ToLocalTime().ToString("g");
-                        notificationText = $"{(string.IsNullOrEmpty(notificationText) ? "" : notificationText + "\n")}New Departure Time: {localTime}";
-                    }
-
-                    if (!string.IsNullOrEmpty(notificationText))
-                    {
-                        // Get the team user ids
-                        var userIds = await graphClient.GetUserIds(updatedTeam.Pilots, updatedTeam.FlightAttendants);
-
-                        foreach(var userId in userIds)
-                        {
-                            await graphClient.SendUserNotification(userId, $"Flight {updatedTeam.FlightNumber} Update", notificationText);
-                        }
-                    }
                 }
             }
         }

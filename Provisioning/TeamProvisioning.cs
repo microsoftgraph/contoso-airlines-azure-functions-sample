@@ -42,6 +42,8 @@ namespace CreateFlightTeam.Provisioning
             // Create SharePoint page
             await CreateSharePointPageAsync(group.Id, teamChannel.Id, flightTeam.FlightNumber);
 
+            await AddFlightToCalendars(flightTeam);
+
             return group.Id;
         }
 
@@ -59,36 +61,62 @@ namespace CreateFlightTeam.Provisioning
                 await graphClient.RemoveMemberAsync(originalTeam.TeamId, admin.Id, true);
             }
 
+            bool isCrewChanged = false;
+
             // Add new pilots
             var newPilots = updatedTeam.Pilots.Except(originalTeam.Pilots);
             foreach (var pilot in newPilots)
             {
+                isCrewChanged = true;
                 var pilotUser = await graphClient.GetUserByUpn(pilot);
                 await graphClient.AddMemberAsync(originalTeam.TeamId, pilotUser.Id);
+            }
+
+            if (newPilots.Count() > 0)
+            {
+                await TeamProvisioning.AddFlightToCalendars(updatedTeam, newPilots.ToList());
             }
 
             // Remove any removed pilots
             var removedPilots = originalTeam.Pilots.Except(updatedTeam.Pilots);
             foreach (var pilot in removedPilots)
             {
+                isCrewChanged = true;
                 var pilotUser = await graphClient.GetUserByUpn(pilot);
                 await graphClient.RemoveMemberAsync(originalTeam.TeamId, pilotUser.Id);
+            }
+
+            if (removedPilots.Count() > 0)
+            {
+                await TeamProvisioning.RemoveFlightFromCalendars(removedPilots.ToList(), updatedTeam.FlightNumber);
             }
 
             // Add new flight attendants
             var newFlightAttendants = updatedTeam.FlightAttendants.Except(originalTeam.FlightAttendants);
             foreach (var attendant in newFlightAttendants)
             {
+                isCrewChanged = true;
                 var attendantUser = await graphClient.GetUserByUpn(attendant);
                 await graphClient.AddMemberAsync(originalTeam.TeamId, attendantUser.Id);
+            }
+
+            if (newFlightAttendants.Count() > 0)
+            {
+                await TeamProvisioning.AddFlightToCalendars(updatedTeam, newFlightAttendants.ToList());
             }
 
             // Remove any removed flight attendants
             var removedFlightAttendants = originalTeam.FlightAttendants.Except(updatedTeam.FlightAttendants);
             foreach (var attendant in removedFlightAttendants)
             {
+                isCrewChanged = true;
                 var attendantUser = await graphClient.GetUserByUpn(attendant);
                 await graphClient.RemoveMemberAsync(originalTeam.TeamId, attendantUser.Id);
+            }
+
+            if (removedFlightAttendants.Count() > 0)
+            {
+                await TeamProvisioning.RemoveFlightFromCalendars(removedFlightAttendants.ToList(), updatedTeam.FlightNumber);
             }
 
             // Swap out catering liaison if needed
@@ -99,12 +127,49 @@ namespace CreateFlightTeam.Provisioning
                 await graphClient.RemoveMemberAsync(originalTeam.TeamId, oldCateringLiaison.Id);
                 await AddGuestUser(originalTeam.TeamId, updatedTeam.CateringLiaison);
             }
+
+            // Check for changes to gate, time
+            bool isGateChanged = updatedTeam.DepartureGate != originalTeam.DepartureGate;
+            bool isDepartureTimeChanged = updatedTeam.DepartureTime != originalTeam.DepartureTime;
+
+            List<string> crew = null;
+            string newGate = null;
+
+            if (isCrewChanged || isGateChanged || isDepartureTimeChanged)
+            {
+                crew = await graphClient.GetUserIds(updatedTeam.Pilots, updatedTeam.FlightAttendants);
+                newGate = isGateChanged ? updatedTeam.DepartureGate : null;
+
+                logger.LogInformation("Updating flight in crew members' calendars");
+
+                if (isDepartureTimeChanged)
+                {
+                    await TeamProvisioning.UpdateFlightInCalendars(crew, updatedTeam.FlightNumber, updatedTeam.DepartureGate, updatedTeam.DepartureTime);
+                }
+                else
+                {
+                    await TeamProvisioning.UpdateFlightInCalendars(crew, updatedTeam.FlightNumber, updatedTeam.DepartureGate);
+                }
+            }
+
+            if (isGateChanged || isDepartureTimeChanged)
+            {
+                string newDepartureTime = isDepartureTimeChanged ? updatedTeam.DepartureTime.ToLocalTime().ToString("g") : null;
+
+                logger.LogInformation("Sending notification to crew members' devices");
+                await TeamProvisioning.SendDeviceNotifications(crew, updatedTeam.FlightNumber,
+                    newGate, newDepartureTime);
+            }
         }
 
-        public static async Task ArchiveTeamAsync(string teamId)
+        public static async Task ArchiveTeamAsync(FlightTeam team)
         {
-            // Archive each matching team
-            await graphClient.ArchiveTeamAsync(teamId);
+            var crew = await graphClient.GetUserIds(team.Pilots, team.FlightAttendants);
+
+            // Remove event from crew calendars
+            await TeamProvisioning.RemoveFlightFromCalendars(crew, team.FlightNumber);
+            // Archive team
+            await graphClient.ArchiveTeamAsync(team.TeamId);
         }
 
         private static async Task<Group> CreateUnifiedGroupAsync(FlightTeam flightTeam)
@@ -287,12 +352,14 @@ namespace CreateFlightTeam.Provisioning
                     await graphClient.AddTeamChannelTab(groupId, channelId, listTab);
                     */
 
+                    logger.LogInformation("Created challenging passenger list");
                     return createdList;
                 }
                 catch (ServiceException ex)
                 {
                     logger.LogWarning($"CreateChallengingPassengersListAsync error: {ex.Message}");
                     retries--;
+                    logger.LogWarning($"{retries} retries remaining");
                 }
             }
 
@@ -363,6 +430,128 @@ namespace CreateFlightTeam.Provisioning
             };
 
             await graphClient.AddTeamChannelTab(groupId, channelId, pageTab);
+        }
+
+        private static async Task AddFlightToCalendars(FlightTeam flightTeam, List<string> usersToAdd = null)
+        {
+            // Get all flight members
+            var allCrewIds = await graphClient.GetUserIds(flightTeam.Pilots, flightTeam.FlightAttendants);
+
+            // Initialize flight event
+            var flightEvent = new Event
+            {
+                Subject = $"Flight {flightTeam.FlightNumber}",
+                Location = new Location
+                {
+                    DisplayName = flightTeam.Description
+                },
+                Start = new DateTimeTimeZone
+                {
+                    DateTime = flightTeam.DepartureTime.ToString("s"),
+                    TimeZone = "UTC"
+                },
+                End = new DateTimeTimeZone
+                {
+                    DateTime = flightTeam.DepartureTime.AddHours(4).ToString("s"),
+                    TimeZone = "UTC"
+                },
+                Categories = new string[] { "Assigned Flight" },
+                Extensions = new EventExtensionsCollectionPage()
+            };
+
+            var flightExtension = new OpenTypeExtension
+            {
+                ODataType = "microsoft.graph.openTypeExtension",
+                ExtensionName = "com.contoso.flightData",
+                AdditionalData = new Dictionary<string, object>()
+            };
+
+            flightExtension.AdditionalData.Add("departureGate", flightTeam.DepartureGate);
+            flightExtension.AdditionalData.Add("crewMembers", allCrewIds);
+
+            flightEvent.Extensions.Add(flightExtension);
+
+            if (usersToAdd == null)
+            {
+                usersToAdd = allCrewIds;
+            }
+
+            foreach (var userId in usersToAdd)
+            {
+                //var user = await graphClient.GetUserByUpn(userId);
+
+                await graphClient.CreateEventInUserCalendar(userId, flightEvent);
+            }
+        }
+
+        private static async Task UpdateFlightInCalendars(List<string> crewMembers, int flightNumber, string departureGate, DateTime? newDepartureTime = null)
+        {
+            foreach (var userId in crewMembers)
+            {
+                // Get the event
+                var matchingEvents = await graphClient.GetEventsInUserCalendar(userId,
+                    $"categories/any(a:a eq 'Assigned Flight') and subject eq 'Flight {flightNumber}'");
+
+                var flightEvent = matchingEvents.CurrentPage.First();
+                if (flightEvent != null)
+                {
+                    if (newDepartureTime != null)
+                    {
+                        flightEvent.Start.DateTime = newDepartureTime?.ToString("s");
+                        flightEvent.End.DateTime = newDepartureTime?.AddHours(4).ToString("s");
+                        await graphClient.UpdateEventInUserCalendar(userId, flightEvent);
+                    }
+
+                    var flightExtension = new OpenTypeExtension
+                    {
+                        ODataType = "microsoft.graph.openTypeExtension",
+                        ExtensionName = "com.contoso.flightData",
+                        AdditionalData = new Dictionary<string, object>()
+                    };
+
+                    flightExtension.AdditionalData.Add("departureGate", departureGate);
+                    flightExtension.AdditionalData.Add("crewMembers", crewMembers);
+
+                    await graphClient.UpdateFlightExtension(userId, flightEvent.Id, flightExtension);
+                }
+            }
+        }
+
+        private static async Task RemoveFlightFromCalendars(List<string> usersToRemove, int flightNumber)
+        {
+            foreach (var userId in usersToRemove)
+            {
+                // Get the event
+                var matchingEvents = await graphClient.GetEventsInUserCalendar(userId,
+                    $"categories/any(a:a eq 'Assigned Flight') and subject eq 'Flight {flightNumber}'");
+
+                var flightEvent = matchingEvents.CurrentPage.First();
+                await graphClient.DeleteEventInUserCalendar(userId, flightEvent.Id);
+            }
+        }
+
+        private static async Task SendDeviceNotifications(List<string> crewMembers, int flightNumber, string newGate = null, string newDepartureTime = null)
+        {
+            string notificationText = string.Empty;
+
+            if (!string.IsNullOrEmpty(newGate))
+            {
+                notificationText = $"New Departure Gate: {newGate}";
+            }
+
+            if (!string.IsNullOrEmpty(newDepartureTime))
+            {
+                //var localTime = updatedTeam.DepartureTime.ToLocalTime().ToString("g");
+                notificationText = $"{(string.IsNullOrEmpty(notificationText) ? "" : notificationText + "\n")}New Departure Time: {newDepartureTime}";
+            }
+
+            if (!string.IsNullOrEmpty(notificationText))
+            {
+                foreach(var userId in crewMembers)
+                {
+                    await graphClient.SendUserNotification(userId, $"Flight {flightNumber} Update", notificationText);
+                }
+            }
         }
 
         private static string GetTimestamp()

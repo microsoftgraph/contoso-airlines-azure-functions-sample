@@ -38,6 +38,8 @@ namespace CreateFlightTeam.Graph
             logger = log;
         }
 
+        #region User operations
+
         public async Task<List<string>> GetUserIds(List<string> pilots, List<string> flightAttendants, bool fullyQualified = false)
         {
             var userIds = new List<string>();
@@ -76,28 +78,39 @@ namespace CreateFlightTeam.Graph
             return results.CurrentPage[0];
         }
 
+        #endregion
+
+        #region Group operations
+
         public async Task<Group> CreateGroupAsync(Group group)
         {
             return await graphClient.Groups.Request().AddAsync(group);
         }
 
-        public async Task CreateTeamAsync(string groupId, Team team)
+        public async Task<IGraphServiceGroupsCollectionPage> GetAllGroupsAsync(string filter = null)
         {
-            var response = await graphClient.Groups[groupId].Team.Request().PutAsync(team);
+            var groupsRequest = graphClient.Groups.Request().Top(50);
+
+            if (!string.IsNullOrEmpty(filter))
+            {
+                groupsRequest = groupsRequest.Filter(filter);
+            }
+
+            return await groupsRequest.GetAsync();
         }
 
-        public async Task<Invitation> CreateGuestInvitationAsync(Invitation invite)
+        public async Task DeleteGroupAsync(string groupId)
         {
-            return await graphClient.Invitations.Request().AddAsync(invite);
+            await graphClient.Groups[groupId].Request().DeleteAsync();
         }
 
-        public async Task AddMemberAsync(string teamId, string userId, bool isOwner = false)
+        public async Task AddMemberAsync(string groupId, string userId, bool isOwner = false)
         {
             var user = new DirectoryObject { Id = userId };
 
             try
             {
-                await graphClient.Groups[teamId].Members.References.Request().AddAsync(user);
+                await graphClient.Groups[groupId].Members.References.Request().AddAsync(user);
             }
             catch (Exception ex)
             {
@@ -108,7 +121,7 @@ namespace CreateFlightTeam.Graph
             {
                 try
                 {
-                    await graphClient.Groups[teamId].Owners.References.Request().AddAsync(user);
+                    await graphClient.Groups[groupId].Owners.References.Request().AddAsync(user);
                 }
                 catch (Exception ex)
                 {
@@ -117,14 +130,47 @@ namespace CreateFlightTeam.Graph
             }
         }
 
-        public async Task RemoveMemberAsync(string teamId, string userId, bool isOwner = false)
+        public async Task RemoveMemberAsync(string groupId, string userId, bool isOwner = false)
         {
             if (isOwner)
             {
-                await graphClient.Groups[teamId].Owners[userId].Reference.Request().DeleteAsync();
+                await graphClient.Groups[groupId].Owners[userId].Reference.Request().DeleteAsync();
             }
 
-            await graphClient.Groups[teamId].Members[userId].Reference.Request().DeleteAsync();
+            await graphClient.Groups[groupId].Members[userId].Reference.Request().DeleteAsync();
+        }
+
+        public async Task<Site> GetTeamSiteAsync(string groupId)
+        {
+            return await graphClient.Groups[groupId].Sites["root"].Request().GetAsync();
+        }
+
+        #endregion
+
+        #region Invitation manager operations
+
+        public async Task<Invitation> CreateGuestInvitationAsync(Invitation invite)
+        {
+            return await graphClient.Invitations.Request().AddAsync(invite);
+        }
+
+        #endregion
+
+        #region Teams operations
+
+        public async Task CreateTeamAsync(string groupId, Team team)
+        {
+            var response = await graphClient.Groups[groupId].Team.Request().PutAsync(team);
+        }
+
+        public async Task ArchiveTeamAsync(string teamId)
+        {
+            await graphClient.Teams[teamId].Archive().Request().PostAsync();
+        }
+
+        public async Task DeleteTeamAsync(string teamId)
+        {
+            await graphClient.Teams[teamId].Request().DeleteAsync();
         }
 
         public async Task<ITeamChannelsCollectionPage> GetTeamChannelsAsync(string teamId)
@@ -141,6 +187,15 @@ namespace CreateFlightTeam.Graph
         {
             var response = await graphClient.Teams[teamId].InstalledApps.Request().AddAsync(app);
         }
+
+        public async Task AddTeamChannelTab(string teamId, string channelId, TeamsTab tab)
+        {
+            await graphClient.Teams[teamId].Channels[channelId].Tabs.Request().AddAsync(tab);
+        }
+
+        #endregion
+
+        #region SharePoint site operations
 
         public async Task<Site> GetSharePointSiteAsync(string sitePath)
         {
@@ -163,39 +218,9 @@ namespace CreateFlightTeam.Graph
             return null;
         }
 
-        public async Task<PlannerPlan> CreatePlanAsync(PlannerPlan plan)
-        {
-            return await graphClient.Planner.Plans.Request().AddAsync(plan);
-        }
-
-        public async Task<PlannerBucket> CreateBucketAsync(PlannerBucket bucket)
-        {
-            return await graphClient.Planner.Buckets.Request().AddAsync(bucket);
-        }
-
-        public async Task<PlannerTask> CreatePlannerTaskAsync(PlannerTask task)
-        {
-            return await graphClient.Planner.Tasks.Request().AddAsync(task);
-        }
-
-        public async Task<Site> GetTeamSiteAsync(string teamId)
-        {
-            return await graphClient.Groups[teamId].Sites["root"].Request().GetAsync();
-        }
-
         public async Task<List> CreateSharePointListAsync(string siteId, List list)
         {
             return await graphClient.Sites[siteId].Lists.Request().AddAsync(list);
-        }
-
-        public async Task ArchiveTeamAsync(string teamId)
-        {
-            await graphClient.Teams[teamId].Archive().Request().PostAsync();
-        }
-
-        public async Task AddTeamChannelTab(string teamId, string channelId, TeamsTab tab)
-        {
-            await graphClient.Teams[teamId].Channels[channelId].Tabs.Request().AddAsync(tab);
         }
 
         public async Task<ISiteListsCollectionPage> GetSiteListsAsync(string siteId)
@@ -212,6 +237,29 @@ namespace CreateFlightTeam.Graph
         {
             await graphClient.Sites[siteId].Pages[pageId].Publish().Request().PostAsync();
         }
+
+        #endregion
+
+        #region Planner operations
+
+        public async Task<PlannerPlan> CreatePlanAsync(PlannerPlan plan)
+        {
+            return await graphClient.Planner.Plans.Request().AddAsync(plan);
+        }
+
+        public async Task<PlannerBucket> CreateBucketAsync(PlannerBucket bucket)
+        {
+            return await graphClient.Planner.Buckets.Request().AddAsync(bucket);
+        }
+
+        public async Task<PlannerTask> CreatePlannerTaskAsync(PlannerTask task)
+        {
+            return await graphClient.Planner.Tasks.Request().AddAsync(task);
+        }
+
+        #endregion
+
+        #region Subscription operations
 
         public async Task<Subscription> CreateListSubscription(string listUrl, string notificationUrl)
         {
@@ -237,6 +285,9 @@ namespace CreateFlightTeam.Graph
             }
         }
 
+        #endregion
+
+        #region OneDrive operations
         public async Task<IDriveItemDeltaCollectionPage> GetListDelta(string driveId, string deltaRequestUrl)
         {
             IDriveItemDeltaCollectionPage changes = null;
@@ -274,6 +325,10 @@ namespace CreateFlightTeam.Graph
                 return null;
             }
         }
+
+        #endregion
+
+        #region Cross-device notification operations
 
         public async Task SendUserNotification(string userId, string title, string message)
         {
@@ -328,6 +383,46 @@ namespace CreateFlightTeam.Graph
                 logger.LogWarning($"Error sending notification to {userId}: {ex.Message}");
             }
         }
+
+        #endregion
+
+        #region Calendar operations
+
+        public async Task<Event> CreateEventInUserCalendar(string userId, Event newEvent)
+        {
+            return await graphClient.Users[userId].Events.Request().AddAsync(newEvent);
+        }
+
+        public async Task<IUserEventsCollectionPage> GetEventsInUserCalendar(string userId, string filter = null)
+        {
+            var eventRequest = graphClient.Users[userId].Events.Request()
+                .Expand("extensions($filter=id eq 'com.contoso.flightData')")
+                .Select("subject,location,start,end,categories,extensions");
+
+            if (!string.IsNullOrEmpty(filter))
+            {
+                eventRequest = eventRequest.Filter(filter);
+            }
+
+            return await eventRequest.GetAsync();
+        }
+
+        public async Task<Event> UpdateEventInUserCalendar(string userId, Event updateEvent)
+        {
+            return await graphClient.Users[userId].Events[updateEvent.Id].Request().UpdateAsync(updateEvent);
+        }
+
+        public async Task UpdateFlightExtension(string userId, string eventId, OpenTypeExtension flightExtension)
+        {
+            await graphClient.Users[userId].Events[eventId].Extensions["com.contoso.flightData"].Request().UpdateAsync(flightExtension);
+        }
+
+        public async Task DeleteEventInUserCalendar(string userId, string eventId)
+        {
+            await graphClient.Users[userId].Events[eventId].Request().DeleteAsync();
+        }
+
+        #endregion
 
         #region Unused code
 /*
@@ -393,23 +488,6 @@ namespace CreateFlightTeam.Graph
         {
             var response = await MakeGraphCall(HttpMethod.Get, $"/groups/{groupId}/members");
             return JsonConvert.DeserializeObject<GraphCollection<User>>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task SendNotification(Notification notification)
-        {
-            var response = await MakeGraphCall(HttpMethod.Post, "/me/notifications", notification);
-        }
-
-        public async Task<GraphCollection<Group>> GetAllGroupsAsync(string filter = null)
-        {
-            string query = string.IsNullOrEmpty(filter) ? string.Empty : $"?$filter={filter}";
-            var response = await MakeGraphCall(HttpMethod.Get, $"/groups{query}");
-            return JsonConvert.DeserializeObject<GraphCollection<Group>>(await response.Content.ReadAsStringAsync());
-        }
-
-        public async Task DeleteGroupAsync(string groupId)
-        {
-            var response = await MakeGraphCall(HttpMethod.Delete, $"/groups/{groupId}");
         }
 
         private async Task<HttpResponseMessage> MakeGraphCall(HttpMethod method, string uri, object body = null, int retries = 0, string version = "beta")
