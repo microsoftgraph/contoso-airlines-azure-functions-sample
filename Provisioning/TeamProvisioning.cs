@@ -154,7 +154,8 @@ namespace CreateFlightTeam.Provisioning
 
             if (isGateChanged || isDepartureTimeChanged)
             {
-                string newDepartureTime = isDepartureTimeChanged ? updatedTeam.DepartureTime.ToLocalTime().ToString("g") : null;
+                var localTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Pacific Standard Time");
+                string newDepartureTime = isDepartureTimeChanged ? TimeZoneInfo.ConvertTime(updatedTeam.DepartureTime, localTimeZone).ToString("g") : null;
 
                 logger.LogInformation("Sending notification to crew members' devices");
                 await TeamProvisioning.SendDeviceNotifications(crew, updatedTeam.FlightNumber,
@@ -541,7 +542,6 @@ namespace CreateFlightTeam.Provisioning
 
             if (!string.IsNullOrEmpty(newDepartureTime))
             {
-                //var localTime = updatedTeam.DepartureTime.ToLocalTime().ToString("g");
                 notificationText = $"{(string.IsNullOrEmpty(notificationText) ? "" : notificationText + "\n")}New Departure Time: {newDepartureTime}";
             }
 

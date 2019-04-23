@@ -20,7 +20,7 @@ namespace CreateFlightTeam
     {
         private static readonly string NotificationUrl =
             string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NgrokProxy")) ?
-                $"{Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME")}/api/ListChanged" :
+                $"https://{Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME")}/api/ListChanged" :
                 $"{Environment.GetEnvironmentVariable("NgrokProxy")}/api/ListChanged";
 
         private static readonly string flightAdminSite = Environment.GetEnvironmentVariable("FlightAdminSite");
