@@ -191,9 +191,11 @@ namespace CreateFlightTeam
 
                 foreach(var group in flightGroups.CurrentPage)
                 {
-                    if (group.DisplayName.CompareTo(flightAdminSite) == 0)
+                    if (group.DisplayName.CompareTo(flightAdminSite) == 0 ||
+                        group.DisplayName.CompareTo("Flight Admins") == 0 ||
+                        group.DisplayName.CompareTo("Flight Attendants") == 0)
                     {
-                        log.LogInformation($"Skipping flight admin team");
+                        log.LogInformation($"Skipping required group: {group.DisplayName}");
                         continue;
                     }
 
