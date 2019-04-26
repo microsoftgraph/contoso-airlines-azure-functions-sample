@@ -298,8 +298,8 @@ namespace CreateFlightTeam
                     var updatedTeam = FlightTeam.FromListItem(item.Id, listItem);
                     updatedTeam.TeamId = team.TeamId;
 
-                    await TeamProvisioning.UpdateTeamAsync(team, updatedTeam);
                     // Existing item, process changes
+                    await TeamProvisioning.UpdateTeamAsync(team, updatedTeam);
                     updatedTeam.Id = team.Id;
                     await DatabaseHelper.UpdateFlightTeamAsync(team.Id, updatedTeam);
                 }

@@ -12,6 +12,7 @@
       "NotificationAppId": "YOUR NOTIFICATION APP ID",
       "NotificationAppSecret": "YOUR NOTIFICATION APP SECRET",
       "TeamAppToInstall": "1542629c-01b3-4a6d-8f76-1938b779e48d",
+      "WebPartId": "WEB-PART-ID",
       "FlightAdminSite": "FlightTeamAdmin",
       "FlightList": "Flights",
       "NotificationHostName": "msgraph.notifs.demo.windows.com",

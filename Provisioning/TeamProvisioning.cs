@@ -12,7 +12,7 @@ namespace CreateFlightTeam.Provisioning
     public static class TeamProvisioning
     {
         private static readonly string teamAppId = Environment.GetEnvironmentVariable("TeamAppToInstall");
-        private static readonly string tenantName = Environment.GetEnvironmentVariable("TenantName");
+        private static readonly string webPartId = Environment.GetEnvironmentVariable("WebPartId");
 
         private static GraphService graphClient;
         private static ILogger logger;
@@ -170,7 +170,14 @@ namespace CreateFlightTeam.Provisioning
             // Remove event from crew calendars
             await TeamProvisioning.RemoveFlightFromCalendars(crew, team.FlightNumber);
             // Archive team
-            await graphClient.ArchiveTeamAsync(team.TeamId);
+            try
+            {
+                await graphClient.ArchiveTeamAsync(team.TeamId);
+            }
+            catch (ServiceException ex)
+            {
+                logger.LogInformation($"Attempt to archive team failed: {ex.Message}");
+            }
         }
 
         private static async Task<Group> CreateUnifiedGroupAsync(FlightTeam flightTeam)
@@ -378,12 +385,30 @@ namespace CreateFlightTeam.Provisioning
             // Initialize page
             var sharePointPage = new SitePage
             {
-                Name = "TeamPage.aspx",
-                Title = $"Flight {flightNumber}"
+                Name = "Crew.aspx",
+                Title = $"Flight {flightNumber} Crew"
             };
 
-            var webParts = new List<WebPart>();
-
+            var webParts = new List<WebPart>
+            {
+                new WebPart
+                {
+                    Type = webPartId,
+                    Data = new SitePageData
+                    {
+                        AdditionalData = new Dictionary<string, object>
+                        {
+                            { "dataVersion", "1.0"},
+                            { "properties", new Dictionary<string, object>
+                                {
+                                    { "description", "CrewBadges" }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            /*
             foreach (var list in siteLists.CurrentPage)
             {
                 bool isDocLibrary = list.DisplayName == "Documents";
@@ -408,6 +433,7 @@ namespace CreateFlightTeam.Provisioning
 
                 webParts.Add(webPart);
             }
+             */
 
             sharePointPage.WebParts = webParts;
 
@@ -526,8 +552,11 @@ namespace CreateFlightTeam.Provisioning
                 var matchingEvents = await graphClient.GetEventsInUserCalendar(userId,
                     $"categories/any(a:a eq 'Assigned Flight') and subject eq 'Flight {flightNumber}'");
 
-                var flightEvent = matchingEvents.CurrentPage.First();
-                await graphClient.DeleteEventInUserCalendar(userId, flightEvent.Id);
+                var flightEvent = matchingEvents.CurrentPage.FirstOrDefault();
+                if (flightEvent != null)
+                {
+                    await graphClient.DeleteEventInUserCalendar(userId, flightEvent.Id);
+                }
             }
         }
 
