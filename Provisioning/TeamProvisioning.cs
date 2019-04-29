@@ -376,87 +376,71 @@ namespace CreateFlightTeam.Provisioning
 
         private static async Task CreateSharePointPageAsync(string groupId, string channelId, float flightNumber)
         {
+            try
+            {
             // Get the team site
-            var teamSite = await graphClient.GetTeamSiteAsync(groupId);
+                var teamSite = await graphClient.GetTeamSiteAsync(groupId);
+                logger.LogInformation("Got team site");
 
-            // Get the site lists
-            var siteLists = await graphClient.GetSiteListsAsync(teamSite.Id);
-
-            // Initialize page
-            var sharePointPage = new SitePage
-            {
-                Name = "Crew.aspx",
-                Title = $"Flight {flightNumber} Crew"
-            };
-
-            var webParts = new List<WebPart>
-            {
-                new WebPart
+                // Initialize page
+                var sharePointPage = new SitePage
                 {
-                    Type = webPartId,
-                    Data = new SitePageData
-                    {
-                        AdditionalData = new Dictionary<string, object>
-                        {
-                            { "dataVersion", "1.0"},
-                            { "properties", new Dictionary<string, object>
-                                {
-                                    { "description", "CrewBadges" }
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            /*
-            foreach (var list in siteLists.CurrentPage)
-            {
-                bool isDocLibrary = list.DisplayName == "Documents";
+                    Name = "Crew.aspx",
+                    Title = $"Flight {flightNumber} Crew"
+                };
 
-                var webPart = new Microsoft.Graph.WebPart
+                var webParts = new List<WebPart>
                 {
-                    Type = SharePointWebPart.ListWebPart,
-                    Data = new SitePageData
+                    new WebPart
                     {
-                        AdditionalData = new Dictionary<string, object>
+                        Type = webPartId,
+                        Data = new SitePageData
                         {
-                            { "dataVersion", "1.0"},
-                            { "properties", new Dictionary<string, object>
-                                {
-                                    { "isDocumentLibrary", isDocLibrary },
-                                    { "selectedListId", list.Id }
+                            AdditionalData = new Dictionary<string, object>
+                            {
+                                { "dataVersion", "1.0"},
+                                { "properties", new Dictionary<string, object>
+                                    {
+                                        { "description", "CrewBadges" }
+                                    }
                                 }
                             }
                         }
                     }
                 };
 
-                webParts.Add(webPart);
-            }
-             */
+                sharePointPage.WebParts = webParts;
 
-            sharePointPage.WebParts = webParts;
+                var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
+                logger.LogInformation("Created crew page");
 
-            var createdPage = await graphClient.CreateSharePointPageAsync(teamSite.Id, sharePointPage);
+                // Publish the page
+                await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);
+                var pageUrl = createdPage.WebUrl.StartsWith("https") ? createdPage.WebUrl :
+                    $"{teamSite.WebUrl}/{createdPage.WebUrl}";
 
-            // Publish the page
-            await graphClient.PublishSharePointPageAsync(teamSite.Id, createdPage.Id);
-            var pageUrl = createdPage.WebUrl.StartsWith("https") ? createdPage.WebUrl :
-                $"{teamSite.WebUrl}/{createdPage.WebUrl}";
+                logger.LogInformation("Published crew page");
 
-            // Add the list as a team tab
-            var pageTab = new TeamsTab
-            {
-                Name = createdPage.Title,
-                TeamsAppId = "com.microsoft.teamspace.tab.web",
-                Configuration = new TeamsTabConfiguration
+                // Add the list as a team tab
+                var pageTab = new TeamsTab
                 {
-                    ContentUrl = pageUrl,
-                    WebsiteUrl = pageUrl
-                }
-            };
+                    Name = createdPage.Title,
+                    TeamsAppId = "com.microsoft.teamspace.tab.web",
+                    Configuration = new TeamsTabConfiguration
+                    {
+                        ContentUrl = pageUrl,
+                        WebsiteUrl = pageUrl
+                    }
+                };
 
-            await graphClient.AddTeamChannelTab(groupId, channelId, pageTab);
+                await graphClient.AddTeamChannelTab(groupId, channelId, pageTab);
+
+                logger.LogInformation("Added crew page as Teams tab");
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning($"Failed to create crew page: ${ex.ToString()}");
+            }
         }
 
         private static async Task AddFlightToCalendars(FlightTeam flightTeam, List<string> usersToAdd = null)
@@ -519,7 +503,7 @@ namespace CreateFlightTeam.Provisioning
                 var matchingEvents = await graphClient.GetEventsInUserCalendar(userId,
                     $"categories/any(a:a eq 'Assigned Flight') and subject eq 'Flight {flightNumber}'");
 
-                var flightEvent = matchingEvents.CurrentPage.First();
+                var flightEvent = matchingEvents.CurrentPage.FirstOrDefault();
                 if (flightEvent != null)
                 {
                     if (newDepartureTime != null)
@@ -548,14 +532,22 @@ namespace CreateFlightTeam.Provisioning
         {
             foreach (var userId in usersToRemove)
             {
+                logger.LogInformation($"Deleting flight from ${userId}");
                 // Get the event
-                var matchingEvents = await graphClient.GetEventsInUserCalendar(userId,
-                    $"categories/any(a:a eq 'Assigned Flight') and subject eq 'Flight {flightNumber}'");
-
-                var flightEvent = matchingEvents.CurrentPage.FirstOrDefault();
-                if (flightEvent != null)
+                try
                 {
-                    await graphClient.DeleteEventInUserCalendar(userId, flightEvent.Id);
+                    var matchingEvents = await graphClient.GetEventsInUserCalendar(userId,
+                        $"categories/any(a:a eq 'Assigned Flight') and subject eq 'Flight {flightNumber}'");
+
+                    var flightEvent = matchingEvents.CurrentPage.FirstOrDefault();
+                    if (flightEvent != null)
+                    {
+                        await graphClient.DeleteEventInUserCalendar(userId, flightEvent.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning($"Delete event returned an error: {ex.Message}");
                 }
             }
         }

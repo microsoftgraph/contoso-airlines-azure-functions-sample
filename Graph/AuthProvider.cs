@@ -55,9 +55,9 @@ namespace CreateFlightTeam.Graph
             var confidentialClient = new ConfidentialClientApplication(notifAppId,
                 authority, redirectUri, notifClientCreds, BlobTokenCache.GetMsalCacheInstance(), null);
 
-            Logger.LogCallback = AuthLog;
-            Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
-            Logger.PiiLoggingEnabled = true;
+            //Logger.LogCallback = AuthLog;
+            //Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
+            //Logger.PiiLoggingEnabled = true;
             var userAssertion = new UserAssertion(parsedHeader.Parameter);
 
             try
@@ -76,9 +76,9 @@ namespace CreateFlightTeam.Graph
             var confidentialClient = new ConfidentialClientApplication(notifAppId,
                 authority, redirectUri, notifClientCreds, BlobTokenCache.GetMsalCacheInstance(), null);
 
-            Logger.LogCallback = AuthLog;
-            Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
-            Logger.PiiLoggingEnabled = true;
+            //Logger.LogCallback = AuthLog;
+            //Logger.Level = Microsoft.Identity.Client.LogLevel.Verbose;
+            //Logger.PiiLoggingEnabled = true;
 
             var account = await confidentialClient.GetAccountAsync($"{userId}.{tid}");
 

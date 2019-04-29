@@ -68,7 +68,7 @@ namespace CreateFlightTeam
             log.LogInformation($"Received queue item: {JsonConvert.SerializeObject(request)}");
 
             DatabaseHelper.Initialize();
-            AuthProvider.AzureLogger = log;
+            //AuthProvider.AzureLogger = log;
 
             // Validate the notification against the subscription
             var subscriptions = await DatabaseHelper.GetListSubscriptionsAsync(

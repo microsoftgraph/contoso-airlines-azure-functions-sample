@@ -134,10 +134,24 @@ namespace CreateFlightTeam.Graph
         {
             if (isOwner)
             {
-                await graphClient.Groups[groupId].Owners[userId].Reference.Request().DeleteAsync();
+                try
+                {
+                    await graphClient.Groups[groupId].Owners[userId].Reference.Request().DeleteAsync();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning($"Remove owner returned an error: {ex.Message}");
+                }
             }
 
-            await graphClient.Groups[groupId].Members[userId].Reference.Request().DeleteAsync();
+            try
+            {
+                await graphClient.Groups[groupId].Members[userId].Reference.Request().DeleteAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning($"Remove member returned an error: {ex.Message}");
+            }
         }
 
         public async Task<Site> GetTeamSiteAsync(string groupId)
