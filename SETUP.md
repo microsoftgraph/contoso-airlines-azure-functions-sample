@@ -40,7 +40,7 @@ When you're done, the list should look something like this.
 You need to create two app registration in the Azure Portal.
 
 1. Choose **Azure Active Directory** in the left-hand navigation in the Azure Portal.
-1. Under **Manage**, choose **App registrations (Preview)**.
+1. Under **Manage**, choose **App registrations**.
 
 ### Register app for Azure Function
 
