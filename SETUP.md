@@ -4,10 +4,8 @@ WORK IN PROGRESS
 
 ## Demo users
 
-This is based off of a standard **Microsoft 365 Enterprise Demo Content** tenant created on demos.microsoft.com.
-
-- **Flight administrator**: An admin user that you'll use to demo creating flights in the SharePoint list. Suggestion: `meganb`
-- **Flight attendant**: A non-admin user that you'll use to demo the mobile app and the self-serve aspect of the web app. Suggestion: `alexw`
+- **Flight administrator**: An admin user that you'll use to demo creating flights in the SharePoint list.
+- **Flight attendant**: A non-admin user that you'll use to demo the mobile app and the self-serve aspect of the web app.
 
 ## Create groups
 
@@ -98,9 +96,9 @@ Register an app **Flight Team Provisioning Function**.
 - Create a secret
 - Set `TenantId`, `TenantName`, `AppId`, and `AppSecret`
 
-## OPTIONAL: Configuring cross-device notifications
+## OPTIONAL: Configuring Graph notifications
 
-This section deals with the configuration needed to enable the [cross-device notifications](https://docs.microsoft.com/graph/api/resources/notifications-api-overview?view=graph-rest-beta) feature of this sample. If you do not do these steps, the sample will still work, it just will not send these notifications.
+This section deals with the configuration needed to enable the [Graph notifications](https://docs.microsoft.com/graph/api/resources/notifications-api-overview?view=graph-rest-beta) feature of this sample. If you do not do these steps, the sample will still work, it just will not send these notifications.
 
 You'll need a few things for this to work:
 

@@ -2,13 +2,13 @@
 
 This sample app implements Azure functions designed to be invoked via a Graph webhook to provision a Microsoft Team when a new flight is added to a master list in SharePoint. The sample uses Microsoft Graph to do the following provisioning tasks:
 
-- Creates a unified [group](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/groups-overview) for the flight team, and initializes a [Team](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/teams_api_overview) for the group.
-- Creates [channels](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/channel) in the team.
-- [Installs an app](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/teamsapp) to the team.
-- Creates a custom SharePoint page and custom [SharePoint list](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/list) for the team.
-- Adds [tabs](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/teamstab) to the team's General channel for the planner plan and SharePoint page.
-- [Sends a cross-device notification](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/resources/projectrome_notification) when the flight is updated.
-- [Archives the team](https://developer.microsoft.com/en-us/graph/docs/api-reference/beta/api/team_archive) when the flight is deleted.
+- Creates a unified [group](https://docs.microsoft.com/graph/api/resources/groups-overview?view=graph-rest-beta) for the flight team, and initializes a [Team](https://docs.microsoft.com/graph/api/resources/teams-api-overview?view=graph-rest-beta) for the group.
+- Creates [channels](https://docs.microsoft.com/graph/api/resources/channel?view=graph-rest-beta) in the team.
+- [Installs an app](https://docs.microsoft.com/graph/api/resources/teamsapp?view=graph-rest-beta) to the team.
+- Creates a custom SharePoint page and custom [SharePoint list](https://docs.microsoft.com/graph/api/resources/list?view=graph-rest-beta) for the team.
+- Adds a [tab](https://docs.microsoft.com/graph/api/resources/teamstab?view=graph-rest-beta) to the team's General channel for the planner plan and SharePoint page.
+- [Sends a Graph notification](https://docs.microsoft.com/graph/api/resources/projectrome-notification?view=graph-rest-beta) when the flight is updated.
+- [Archives the team](https://docs.microsoft.com/graph/api/team-archive?view=graph-rest-beta) when the flight is deleted.
 
 ## Prerequisites
 
