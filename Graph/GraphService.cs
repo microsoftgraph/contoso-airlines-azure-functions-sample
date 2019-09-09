@@ -299,6 +299,17 @@ namespace CreateFlightTeam.Graph
             }
         }
 
+        public async Task<Subscription> RenewListSubscription(string subscriptionId)
+        {
+            var updateSubscription = new Subscription
+            {
+                ExpirationDateTime = DateTime.UtcNow.AddDays(2)
+            };
+
+            return await graphClient.Subscriptions[subscriptionId].Request()
+                .UpdateAsync(updateSubscription);
+        }
+
         #endregion
 
         #region OneDrive operations

@@ -226,6 +226,49 @@ namespace CreateFlightTeam
             }
         }
 
+        // This function is triggered by a timer to check
+        // the subscription to the SharePoint list. If subscription is
+        // expired or close to expiring, renew the subscription.
+        [FunctionName("CheckGraphSubscription")]
+        public static async Task CheckGraphSubscription([TimerTrigger("0 0 9,21 * * *")] TimerInfo timer, ILogger log)
+        {
+            DatabaseHelper.Initialize();
+
+            var graphClient = new GraphService(log);
+
+            // Are there subscriptions in the database?
+            var subscriptions = await DatabaseHelper.GetListSubscriptionsAsync();
+            foreach (var subscription in subscriptions)
+            {
+                if (subscription.IsExpiredOrCloseToExpired())
+                {
+                    try
+                    {
+                        var updatedSubscription = await graphClient.RenewListSubscription(subscription.SubscriptionId);
+
+                        subscription.Expiration = updatedSubscription.ExpirationDateTime.GetValueOrDefault().UtcDateTime;
+
+                        // Update the database
+                        await DatabaseHelper.UpdateListSubscriptionAsync(subscription.Id, subscription);
+                        continue;
+                    }
+                    catch (Microsoft.Graph.ServiceException)
+                    {
+                        log.LogInformation($"Renewing subscription with id {subscription.SubscriptionId} failed");
+                    }
+
+                    // If renew failed, create a new subscription
+                    var newSubscription = await graphClient.CreateListSubscription(subscription.Resource, NotificationUrl);
+                    subscription.ClientState = newSubscription.ClientState;
+                    subscription.Expiration = newSubscription.ExpirationDateTime.GetValueOrDefault().UtcDateTime;
+                    subscription.SubscriptionId = newSubscription.Id;
+
+                    // Update the database
+                    await DatabaseHelper.UpdateListSubscriptionAsync(subscription.Id, subscription);
+                }
+            }
+        }
+
         private static async Task<string> ProcessDelta(GraphService graphClient, ILogger log, string driveId = null, string deltaLink = null)
         {
             string deltaRequestUrl = deltaLink;

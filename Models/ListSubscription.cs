@@ -23,5 +23,11 @@ namespace CreateFlightTeam.Models
         {
             return Expiration <= DateTime.UtcNow;
         }
+
+        public bool IsExpiredOrCloseToExpired()
+        {
+            // If expiration is not more than 12 hours away
+            return Expiration.AddHours(-12) <= DateTime.UtcNow;
+        }
     }
 }
