@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
@@ -88,8 +89,16 @@ namespace CreateFlightTeam
                 {
                     var graphClient = new GraphService(log);
 
+                    // Extract driveId from subscription
+                    string driveId = "";
+                    var match = Regex.Match(subscription.Resource, @"\/drives\/(.*)\/root", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+                    if (match.Success)
+                    {
+                        driveId = match.Groups[1].Value;
+                    }
+
                     // Process changes
-                    var newDeltaLink = await ProcessDelta(graphClient, log, deltaLink: subscription.DeltaLink);
+                    var newDeltaLink = await ProcessDelta(graphClient, log, driveId: driveId, deltaLink: subscription.DeltaLink);
 
                     if (!string.IsNullOrEmpty(newDeltaLink))
                     {
@@ -159,7 +168,7 @@ namespace CreateFlightTeam
             }
             else
             {
-                deltaLink = await ProcessDelta(graphClient, log, deltaLink: subscription.DeltaLink);
+                deltaLink = await ProcessDelta(graphClient, log, driveId: drive.Id, deltaLink: subscription.DeltaLink);
             }
 
             subscription.DeltaLink = deltaLink;
@@ -275,7 +284,19 @@ namespace CreateFlightTeam
 
             TeamProvisioning.Initialize(graphClient, log);
 
-            var delta = await graphClient.GetListDelta(driveId, deltaRequestUrl);
+            Microsoft.Graph.IDriveItemDeltaCollectionPage delta = null;
+
+            try
+            {
+                delta = await graphClient.GetListDelta(driveId, deltaRequestUrl);
+            }
+            catch (Microsoft.Graph.ServiceException ex)
+            {
+                if (ex.Error.Code == "resyncRequired")
+                {
+                    delta = await graphClient.GetListDelta(driveId, null);
+                }
+            }
 
             foreach(var item in delta.CurrentPage)
             {
