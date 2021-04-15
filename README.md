@@ -1,24 +1,8 @@
----
-page_type: sample
-products:
-- office-sp
-- office-teams
-- office-planner
-- ms-graph
-languages:
-- csharp
-extensions:
-  contentType: samples
-  technologies:
-  - Microsoft Graph
-  - Azure AD
-  services:
-  - SharePoint
-  - Microsoft Teams
-  - Planner
-  createdDate: 09/12/2018 0:00:00 PM
----
 # Contoso Airlines Flight Team Provisioning Sample
+
+## IMPORTANT
+
+**This sample has been archived and is no longer being maintained. For a more current sample using Microsoft Graph from Azure Functions, please see https://github.com/microsoftgraph/msgraph-training-azurefunction-csharp.**
 
 This sample app implements Azure functions designed to be invoked via a Graph webhook to provision a Microsoft Team when a new flight is added to a master list in SharePoint. The sample uses Microsoft Graph to do the following provisioning tasks:
 
